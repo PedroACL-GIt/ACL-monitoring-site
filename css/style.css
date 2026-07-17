@@ -59,12 +59,8 @@ html, body {
 .brand-logo {
   width: 44px; height: 44px;
   border-radius: 11px;
-  background: #fff;
-  color: var(--navy);
-  font-weight: 800;
-  font-size: 15px;
-  display: flex; align-items: center; justify-content: center;
-  letter-spacing: 0.5px;
+  display: block;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 .app-header h1 { font-size: 1.15rem; margin: 0; font-weight: 700; }
 .subtitle { margin: 2px 0 0; font-size: 0.78rem; opacity: 0.75; }

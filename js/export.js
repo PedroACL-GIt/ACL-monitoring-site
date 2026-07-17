@@ -48,7 +48,23 @@
 
   /* ---------------- PDF ---------------- */
 
-  function buildPDF(s, assets) {
+  var logoCache;
+  function loadLogo() {
+    if (logoCache !== undefined) return Promise.resolve(logoCache);
+    return fetch('icons/logo-rounded-512.png')
+      .then(function (r) { return r.blob(); })
+      .then(function (b) {
+        return new Promise(function (resolve) {
+          var fr = new FileReader();
+          fr.onload = function () { logoCache = fr.result; resolve(logoCache); };
+          fr.onerror = function () { logoCache = null; resolve(null); };
+          fr.readAsDataURL(b);
+        });
+      })
+      .catch(function () { logoCache = null; return null; });
+  }
+
+  function buildPDF(s, assets, logo) {
     if (!global.jspdf || !global.jspdf.jsPDF) throw new Error('PDF library not loaded — reload the app once online.');
     var jsPDF = global.jspdf.jsPDF;
     var doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -89,6 +105,9 @@
     // Title band
     doc.setFillColor(10, 37, 64);
     doc.rect(0, 0, PW, 30, 'F');
+    if (logo) {
+      try { doc.addImage(logo, 'PNG', PW - M - 20, 5, 20, 20); } catch (e) { /* skip logo */ }
+    }
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
@@ -234,11 +253,13 @@
   }
 
   function toPDF(s, assets, opts) {
-    var doc = buildPDF(s, assets);
-    var name = fileStem(s) + '.pdf';
-    if (opts && opts.blob) return Promise.resolve({ blob: doc.output('blob'), name: name });
-    doc.save(name);
-    return Promise.resolve('PDF saved: ' + name);
+    return loadLogo().then(function (logo) {
+      var doc = buildPDF(s, assets, logo);
+      var name = fileStem(s) + '.pdf';
+      if (opts && opts.blob) return { blob: doc.output('blob'), name: name };
+      doc.save(name);
+      return 'PDF saved: ' + name;
+    });
   }
 
   function shareByEmail(s, assets) {
@@ -270,6 +291,10 @@
   /* ---------------- Word (.doc) ---------------- */
 
   function toWord(s, assets) {
+    return loadLogo().then(function (logo) { return buildWord(s, assets, logo); });
+  }
+
+  function buildWord(s, assets, logo) {
     var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">' +
       '<head><meta charset="utf-8"><title>Noise Monitoring Sheet</title>' +
       '<style>' +
@@ -283,6 +308,7 @@
       'img{max-width:320px;margin:4px}' +
       '</style></head><body>';
 
+    if (logo) html += '<p><img src="' + logo + '" width="72" height="72"></p>';
     html += '<h1>NOISE MONITORING SHEET</h1>';
     html += '<p><b>' + esc(s.project || 'Untitled survey') + '</b>' + (s.jobNo ? ' — Job ' + esc(s.jobNo) : '') + '</p>';
 

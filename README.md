@@ -27,10 +27,17 @@ screen as an app (Share → *Add to Home Screen*).
   refs, full timestamped log with photos, marked-up layout pages), **Email/share** via
   the iOS share sheet, **Word (.doc)** and **Excel (.xls)**.
 
-## Running it
+## Installing on an iPhone
 
-It's a static site — host the repo with GitHub Pages (Settings → Pages → deploy from
-branch) and open the URL in Safari on the iPhone, then *Add to Home Screen*.
+1. **Enable GitHub Pages**: repo *Settings → Pages → Build and deployment*, source
+   "Deploy from a branch", pick the branch (and `/ (root)`), save.
+2. Wait ~1 minute, then open the Pages URL in **Safari** on the iPhone
+   (e.g. `https://pedroacl-git.github.io/ACL-monitoring-site/`).
+3. Tap the **Share** button → **Add to Home Screen** → **Add**.
+
+It installs with the ACL Monitor icon and opens full-screen like a native app.
+After the first visit it also works offline (map tiles, address search and live
+weather still need signal).
 
 For local testing: `python3 -m http.server` in the repo folder and open
 `http://localhost:8000`.
