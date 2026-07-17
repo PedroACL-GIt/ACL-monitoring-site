@@ -1,0 +1,987 @@
+/* ACL Noise Monitoring — main app logic */
+(function () {
+  'use strict';
+
+  /* ================= State ================= */
+
+  var sheets = Store.loadSheets();
+  var sheet = null;          // currently open sheet object (reference into sheets[])
+  var pendingPhotos = [];    // photo ids staged in the composer
+  var saveTimer = null;
+  var durationTimer = null;
+
+  /* ================= Utilities ================= */
+
+  function $(id) { return document.getElementById(id); }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+  function toast(msg, ms) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.remove('hidden');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { t.classList.add('hidden'); }, ms || 2200);
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  function fmtTime(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  function nowLocalInput() {
+    var d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  /* ================= Sheet model ================= */
+
+  function newSheet() {
+    return {
+      id: uid(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      project: '', jobNo: '', client: '', address: '',
+      date: new Date().toISOString().slice(0, 10),
+      operative: '', surveyType: '', description: '',
+      weather: { cond: '', temp: '', wind: '', windDir: '', notes: '' },
+      equipment: { meter: '', vibKit: '', calStart: '', calEnd: '', notes: '' },
+      times: { start: '', finish: '' },
+      locations: [],   // {id, name, lat, lng, gridRef, params}
+      entries: [],     // {id, ts, text, meterFile, locationId, photoIds[]}
+      layout: { blobId: null, isPdf: false, name: '', pages: {} } // pages[n] = [shape,...]
+    };
+  }
+
+  function persist() {
+    if (sheet) sheet.updatedAt = new Date().toISOString();
+    Store.saveSheets(sheets);
+    var si = $('save-indicator');
+    if (si) si.textContent = 'Saved ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    var si = $('save-indicator');
+    if (si) si.textContent = 'Saving…';
+    saveTimer = setTimeout(function () {
+      readDetailsForm();
+      persist();
+    }, 400);
+  }
+
+  /* ================= Screens & tabs ================= */
+
+  function showScreen(name) {
+    document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
+    $('screen-' + name).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  function showTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+    document.querySelectorAll('.tab-btn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tab === name);
+    });
+    $('tab-' + name).classList.add('active');
+    window.scrollTo(0, 0);
+    if (name === 'map') initMap();
+    if (name === 'export') renderSummary();
+  }
+
+  /* ================= Home ================= */
+
+  function renderHome() {
+    var list = $('sheet-list');
+    list.innerHTML = '';
+    var sorted = sheets.slice().sort(function (a, b) { return b.updatedAt.localeCompare(a.updatedAt); });
+    sorted.forEach(function (s) {
+      var el = document.createElement('div');
+      el.className = 'sheet-card';
+      var title = s.project || 'Untitled sheet';
+      var subs = [fmtDate(s.date)];
+      if (s.jobNo) subs.push(s.jobNo);
+      if (s.operative) subs.push(s.operative);
+      subs.push(s.entries.length + ' entries');
+      el.innerHTML =
+        '<div class="sheet-card-icon">🔊</div>' +
+        '<div class="sheet-card-body">' +
+          '<div class="sheet-card-title">' + esc(title) + '</div>' +
+          '<div class="sheet-card-sub">' + esc(subs.join(' · ')) + '</div>' +
+        '</div>' +
+        '<div class="sheet-card-chev">›</div>';
+      el.addEventListener('click', function () { openSheet(s.id); });
+      list.appendChild(el);
+    });
+    $('home-empty').classList.toggle('hidden', sheets.length > 0);
+  }
+
+  function openSheet(id) {
+    sheet = sheets.find(function (s) { return s.id === id; });
+    if (!sheet) return;
+    pendingPhotos = [];
+    writeDetailsForm();
+    renderLocationList();
+    renderEntries();
+    renderComposerPreviews();
+    updateLocationSelect();
+    updateDuration();
+    resetLayoutUI();
+    $('sheet-title-label').textContent = sheet.project || 'Untitled sheet';
+    showScreen('sheet');
+    showTab('details');
+    if (sheet.layout && sheet.layout.blobId) loadLayoutFromStore();
+  }
+
+  /* ================= Details form ================= */
+
+  var fieldMap = [
+    ['f-project', function (s) { return s.project; }, function (s, v) { s.project = v; }],
+    ['f-jobno', function (s) { return s.jobNo; }, function (s, v) { s.jobNo = v; }],
+    ['f-date', function (s) { return s.date; }, function (s, v) { s.date = v; }],
+    ['f-operative', function (s) { return s.operative; }, function (s, v) { s.operative = v; }],
+    ['f-client', function (s) { return s.client; }, function (s, v) { s.client = v; }],
+    ['f-address', function (s) { return s.address; }, function (s, v) { s.address = v; }],
+    ['f-surveytype', function (s) { return s.surveyType; }, function (s, v) { s.surveyType = v; }],
+    ['f-description', function (s) { return s.description; }, function (s, v) { s.description = v; }],
+    ['f-wx-cond', function (s) { return s.weather.cond; }, function (s, v) { s.weather.cond = v; }],
+    ['f-wx-temp', function (s) { return s.weather.temp; }, function (s, v) { s.weather.temp = v; }],
+    ['f-wx-wind', function (s) { return s.weather.wind; }, function (s, v) { s.weather.wind = v; }],
+    ['f-wx-winddir', function (s) { return s.weather.windDir; }, function (s, v) { s.weather.windDir = v; }],
+    ['f-wx-notes', function (s) { return s.weather.notes; }, function (s, v) { s.weather.notes = v; }],
+    ['f-meter', function (s) { return s.equipment.meter; }, function (s, v) { s.equipment.meter = v; }],
+    ['f-vibkit', function (s) { return s.equipment.vibKit; }, function (s, v) { s.equipment.vibKit = v; }],
+    ['f-cal-start', function (s) { return s.equipment.calStart; }, function (s, v) { s.equipment.calStart = v; }],
+    ['f-cal-end', function (s) { return s.equipment.calEnd; }, function (s, v) { s.equipment.calEnd = v; }],
+    ['f-equip-notes', function (s) { return s.equipment.notes; }, function (s, v) { s.equipment.notes = v; }],
+    ['f-start', function (s) { return s.times.start; }, function (s, v) { s.times.start = v; }],
+    ['f-finish', function (s) { return s.times.finish; }, function (s, v) { s.times.finish = v; }]
+  ];
+
+  function writeDetailsForm() {
+    fieldMap.forEach(function (f) {
+      var el = $(f[0]);
+      if (el) el.value = f[1](sheet) || '';
+    });
+  }
+
+  function readDetailsForm() {
+    if (!sheet) return;
+    fieldMap.forEach(function (f) {
+      var el = $(f[0]);
+      if (el) f[2](sheet, el.value);
+    });
+    $('sheet-title-label').textContent = sheet.project || 'Untitled sheet';
+  }
+
+  /* ================= Weather auto-fill ================= */
+
+  var WMO = {
+    0: 'Sunny / clear', 1: 'Partly cloudy', 2: 'Partly cloudy', 3: 'Overcast',
+    45: 'Fog / mist', 48: 'Fog / mist',
+    51: 'Drizzle', 53: 'Drizzle', 55: 'Drizzle',
+    61: 'Rain', 63: 'Rain', 65: 'Heavy rain',
+    66: 'Rain', 67: 'Heavy rain',
+    71: 'Snow', 73: 'Snow', 75: 'Snow', 77: 'Snow',
+    80: 'Rain', 81: 'Rain', 82: 'Heavy rain',
+    85: 'Snow', 86: 'Snow', 95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm'
+  };
+
+  function windDirText(deg) {
+    var dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    return dirs[Math.round(deg / 22.5) % 16];
+  }
+
+  function fetchWeather() {
+    var hint = $('weather-hint');
+    hint.textContent = 'Getting your position…';
+    if (!navigator.geolocation) { hint.textContent = 'Geolocation not available on this device.'; return; }
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      hint.textContent = 'Fetching live weather…';
+      var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + pos.coords.latitude +
+        '&longitude=' + pos.coords.longitude +
+        '&current=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code&wind_speed_unit=ms';
+      fetch(url).then(function (r) { return r.json(); }).then(function (j) {
+        var c = j.current || {};
+        $('f-wx-temp').value = c.temperature_2m != null ? Math.round(c.temperature_2m * 10) / 10 : '';
+        $('f-wx-wind').value = c.wind_speed_10m != null ? Math.round(c.wind_speed_10m * 10) / 10 : '';
+        $('f-wx-winddir').value = c.wind_direction_10m != null ? windDirText(c.wind_direction_10m) : '';
+        var cond = WMO[c.weather_code];
+        if (cond) $('f-wx-cond').value = cond;
+        hint.textContent = 'Live weather filled at ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' (Open-Meteo). Adjust as observed on site.';
+        scheduleSave();
+      }).catch(function () { hint.textContent = 'Weather service unreachable — fill in manually.'; });
+    }, function () {
+      hint.textContent = 'Location permission denied — fill in manually.';
+    }, { enableHighAccuracy: true, timeout: 12000 });
+  }
+
+  /* ================= Map ================= */
+
+  var map = null, markerLayer = null, satellite = false;
+  var osmLayer, satLayer;
+
+  function initMap() {
+    if (!sheet) return;
+    if (!map) {
+      map = L.map('map', { zoomControl: true }).setView([52.5, -1.9], 6);
+      osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+      });
+      satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Imagery © Esri'
+      });
+      osmLayer.addTo(map);
+      markerLayer = L.layerGroup().addTo(map);
+      map.on('click', function (e) { addLocation(e.latlng.lat, e.latlng.lng); });
+    }
+    setTimeout(function () { map.invalidateSize(); }, 60);
+    drawMarkers();
+    if (sheet.locations.length) {
+      var pts = sheet.locations.map(function (l) { return [l.lat, l.lng]; });
+      map.fitBounds(L.latLngBounds(pts).pad(0.3));
+    }
+  }
+
+  function popupHtml(loc) {
+    return '<div class="gridref-popup">' +
+      '<div class="gr">' + esc(loc.name) + '</div>' +
+      (loc.gridRef ? 'OS Grid: <b>' + esc(loc.gridRef) + '</b><br>' : '') +
+      'Lat: ' + loc.lat.toFixed(5) + '<br>Lng: ' + loc.lng.toFixed(5) +
+      '</div>';
+  }
+
+  function drawMarkers() {
+    if (!markerLayer) return;
+    markerLayer.clearLayers();
+    sheet.locations.forEach(function (loc, i) {
+      var m = L.marker([loc.lat, loc.lng], { draggable: true }).addTo(markerLayer);
+      m.bindPopup(popupHtml(loc));
+      m.on('dragend', function () {
+        var p = m.getLatLng();
+        loc.lat = p.lat; loc.lng = p.lng;
+        loc.gridRef = GridRef.wgs84ToOSGrid(p.lat, p.lng);
+        m.setPopupContent(popupHtml(loc));
+        renderLocationList();
+        persist();
+      });
+    });
+  }
+
+  function addLocation(lat, lng) {
+    var loc = {
+      id: uid(),
+      name: 'Position ' + (sheet.locations.length + 1),
+      lat: lat, lng: lng,
+      gridRef: GridRef.wgs84ToOSGrid(lat, lng),
+      params: ''
+    };
+    sheet.locations.push(loc);
+    drawMarkers();
+    renderLocationList();
+    updateLocationSelect();
+    persist();
+    toast('Added ' + loc.name + (loc.gridRef ? ' — ' + loc.gridRef : ''));
+  }
+
+  function renderLocationList() {
+    var wrap = $('location-list');
+    wrap.innerHTML = '';
+    sheet.locations.forEach(function (loc) {
+      var el = document.createElement('div');
+      el.className = 'location-item';
+      el.innerHTML =
+        '<div class="location-pin">📍</div>' +
+        '<div class="location-body">' +
+          '<input class="location-name" value="' + esc(loc.name) + '" placeholder="Position name">' +
+          '<div class="location-coords">' +
+            (loc.gridRef ? 'OS ' + esc(loc.gridRef) + ' · ' : '') +
+            loc.lat.toFixed(5) + ', ' + loc.lng.toFixed(5) +
+          '</div>' +
+          '<textarea class="location-params" rows="1" placeholder="Parameters… e.g. façade 1 m, tripod 1.5 m, LAeq 15-min">' + esc(loc.params) + '</textarea>' +
+        '</div>' +
+        '<button class="location-del">✕</button>';
+      el.querySelector('.location-name').addEventListener('input', function (e) {
+        loc.name = e.target.value; updateLocationSelect(); drawMarkers(); scheduleSave();
+      });
+      el.querySelector('.location-params').addEventListener('input', function (e) {
+        loc.params = e.target.value; scheduleSave();
+      });
+      el.querySelector('.location-del').addEventListener('click', function () {
+        if (!confirm('Remove ' + loc.name + '?')) return;
+        sheet.locations = sheet.locations.filter(function (l) { return l.id !== loc.id; });
+        drawMarkers(); renderLocationList(); updateLocationSelect(); persist();
+      });
+      wrap.appendChild(el);
+    });
+    $('location-empty').classList.toggle('hidden', sheet.locations.length > 0);
+  }
+
+  function mapSearch() {
+    var q = $('map-search').value.trim();
+    if (!q) return;
+    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.length) { toast('No results for “' + q + '”'); return; }
+        map.setView([+res[0].lat, +res[0].lon], 17);
+      })
+      .catch(function () { toast('Search unavailable offline'); });
+  }
+
+  function locateMe() {
+    if (!navigator.geolocation) { toast('Geolocation not available'); return; }
+    toast('Locating…');
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      map.setView([pos.coords.latitude, pos.coords.longitude], 18);
+      toast('Tap the map to drop a survey position');
+    }, function () { toast('Location permission denied'); }, { enableHighAccuracy: true, timeout: 12000 });
+  }
+
+  /* ================= Log ================= */
+
+  function updateDuration() {
+    clearInterval(durationTimer);
+    function tick() {
+      var s = $('f-start').value, f = $('f-finish').value;
+      var line = $('duration-line');
+      if (!s) { line.textContent = 'Duration: —'; return; }
+      var start = new Date(s);
+      var end = f ? new Date(f) : new Date();
+      var ms = end - start;
+      if (ms < 0) { line.textContent = 'Duration: —'; return; }
+      var h = Math.floor(ms / 3600000), m = Math.floor(ms % 3600000 / 60000), sec = Math.floor(ms % 60000 / 1000);
+      line.textContent = (f ? 'Duration: ' : 'Running: ') +
+        String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    }
+    tick();
+    if ($('f-start').value && !$('f-finish').value) durationTimer = setInterval(tick, 1000);
+  }
+
+  function updateLocationSelect() {
+    var sel = $('e-location');
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">—</option>';
+    sheet.locations.forEach(function (l) {
+      var o = document.createElement('option');
+      o.value = l.id; o.textContent = l.name;
+      sel.appendChild(o);
+    });
+    sel.value = cur;
+  }
+
+  /** Downscale an image file to max 1600 px JPEG and store it in IndexedDB. */
+  function ingestPhoto(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var MAX = 1600;
+        var scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.width * scale);
+        c.height = Math.round(img.height * scale);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(function (blob) {
+          if (!blob) { reject(new Error('encode failed')); return; }
+          var id = 'photo_' + uid();
+          Store.putBlob(id, blob).then(function () { resolve(id); }, reject);
+        }, 'image/jpeg', 0.82);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('cannot read image')); };
+      img.src = url;
+    });
+  }
+
+  function renderComposerPreviews() {
+    var strip = $('e-photo-previews');
+    strip.innerHTML = '';
+    pendingPhotos.forEach(function (id) {
+      appendThumb(strip, id, function () {
+        pendingPhotos = pendingPhotos.filter(function (p) { return p !== id; });
+        Store.deleteBlob(id);
+        renderComposerPreviews();
+      });
+    });
+    $('e-photo-count').textContent = pendingPhotos.length ? pendingPhotos.length + ' photo' + (pendingPhotos.length > 1 ? 's' : '') : '';
+  }
+
+  function appendThumb(container, photoId, onLongPressDelete) {
+    var img = document.createElement('img');
+    img.className = 'photo-thumb';
+    img.alt = 'Photo';
+    Store.getBlob(photoId).then(function (blob) {
+      if (blob) img.src = URL.createObjectURL(blob);
+    });
+    img.addEventListener('click', function () {
+      Store.getBlob(photoId).then(function (blob) {
+        if (!blob) return;
+        $('photo-modal-img').src = URL.createObjectURL(blob);
+        $('photo-modal').classList.remove('hidden');
+      });
+    });
+    if (onLongPressDelete) {
+      var timer;
+      img.addEventListener('touchstart', function () { timer = setTimeout(function () { if (confirm('Remove this photo?')) onLongPressDelete(); }, 650); }, { passive: true });
+      img.addEventListener('touchend', function () { clearTimeout(timer); }, { passive: true });
+      img.addEventListener('contextmenu', function (e) { e.preventDefault(); if (confirm('Remove this photo?')) onLongPressDelete(); });
+    }
+    container.appendChild(img);
+  }
+
+  function addEntry() {
+    var text = $('e-text').value.trim();
+    if (!text && !pendingPhotos.length) { toast('Type a note or attach a photo first'); return; }
+    var entry = {
+      id: uid(),
+      ts: new Date().toISOString(),
+      text: text,
+      meterFile: $('e-file').value.trim(),
+      locationId: $('e-location').value,
+      photoIds: pendingPhotos.slice()
+    };
+    sheet.entries.push(entry);
+    pendingPhotos = [];
+    $('e-text').value = '';
+    // keep meter file + location selected — often the next samples share them
+    renderComposerPreviews();
+    renderEntries();
+    persist();
+    toast('Entry logged at ' + fmtTime(entry.ts));
+  }
+
+  function locationName(id) {
+    var l = sheet.locations.find(function (x) { return x.id === id; });
+    return l ? l.name : '';
+  }
+
+  function renderEntries() {
+    var list = $('entry-list');
+    list.innerHTML = '';
+    var sorted = sheet.entries.slice().sort(function (a, b) { return b.ts.localeCompare(a.ts); });
+    sorted.forEach(function (en) {
+      var el = document.createElement('div');
+      el.className = 'entry-item';
+      var head = document.createElement('div');
+      head.className = 'entry-head';
+      head.innerHTML = '<span class="entry-time">' + fmtTime(en.ts) + '</span>';
+      if (en.meterFile) head.innerHTML += '<span class="entry-chip">File ' + esc(en.meterFile) + '</span>';
+      var ln = locationName(en.locationId);
+      if (ln) head.innerHTML += '<span class="entry-chip loc">' + esc(ln) + '</span>';
+      var actions = document.createElement('span');
+      actions.className = 'entry-actions';
+      actions.innerHTML = '<button title="Edit">✎</button><button title="Delete">🗑</button>';
+      actions.children[0].addEventListener('click', function () { editEntry(en); });
+      actions.children[1].addEventListener('click', function () {
+        if (!confirm('Delete this entry?')) return;
+        en.photoIds.forEach(function (p) { Store.deleteBlob(p); });
+        sheet.entries = sheet.entries.filter(function (x) { return x.id !== en.id; });
+        renderEntries(); persist();
+      });
+      head.appendChild(actions);
+      el.appendChild(head);
+      if (en.text) {
+        var p = document.createElement('p');
+        p.className = 'entry-text';
+        p.textContent = en.text;
+        el.appendChild(p);
+      }
+      if (en.photoIds.length) {
+        var strip = document.createElement('div');
+        strip.className = 'entry-photos';
+        en.photoIds.forEach(function (pid) { appendThumb(strip, pid); });
+        el.appendChild(strip);
+      }
+      list.appendChild(el);
+    });
+    $('entry-count').textContent = sheet.entries.length || '';
+    $('entry-empty').classList.toggle('hidden', sheet.entries.length > 0);
+  }
+
+  function editEntry(en) {
+    var t = prompt('Edit note:', en.text);
+    if (t === null) return;
+    en.text = t.trim();
+    var f = prompt('Meter file no. (blank for none):', en.meterFile || '');
+    if (f !== null) en.meterFile = f.trim();
+    renderEntries();
+    persist();
+  }
+
+  /* ================= Layout markup ================= */
+
+  var layoutState = {
+    pdfDoc: null, img: null, page: 1, numPages: 1,
+    tool: 'pen', color: '#e11d48', drawing: false, current: null
+  };
+
+  function resetLayoutUI() {
+    layoutState.pdfDoc = null; layoutState.img = null; layoutState.page = 1; layoutState.numPages = 1;
+    $('layout-editor').classList.add('hidden');
+    $('layout-empty').classList.remove('hidden');
+  }
+
+  function loadLayoutFile(file) {
+    var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    var blobId = 'layout_' + sheet.id;
+    Store.putBlob(blobId, file).then(function () {
+      sheet.layout = { blobId: blobId, isPdf: isPdf, name: file.name, pages: {} };
+      persist();
+      return openLayout(file, isPdf);
+    }).then(function () {
+      toast('Layout loaded — draw with your finger');
+    }).catch(function (e) {
+      toast('Could not load file: ' + e.message);
+    });
+  }
+
+  function loadLayoutFromStore() {
+    Store.getBlob(sheet.layout.blobId).then(function (blob) {
+      if (blob) return openLayout(blob, sheet.layout.isPdf);
+      resetLayoutUI();
+    }).catch(function () { resetLayoutUI(); });
+  }
+
+  function openLayout(blob, isPdf) {
+    $('layout-empty').classList.add('hidden');
+    $('layout-editor').classList.remove('hidden');
+    if (isPdf) {
+      if (typeof pdfjsLib === 'undefined') return Promise.reject(new Error('PDF library offline'));
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdfjs/pdf.worker.min.js';
+      return blob.arrayBuffer().then(function (buf) {
+        return pdfjsLib.getDocument({ data: buf }).promise;
+      }).then(function (doc) {
+        layoutState.pdfDoc = doc;
+        layoutState.img = null;
+        layoutState.numPages = doc.numPages;
+        layoutState.page = 1;
+        return renderLayoutPage();
+      });
+    }
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () {
+        layoutState.img = img;
+        layoutState.pdfDoc = null;
+        layoutState.numPages = 1;
+        layoutState.page = 1;
+        renderLayoutPage().then(resolve, reject);
+      };
+      img.onerror = function () { reject(new Error('bad image')); };
+      img.src = URL.createObjectURL(blob);
+    });
+  }
+
+  function renderLayoutPage() {
+    var base = $('layout-canvas-base');
+    var draw = $('layout-canvas-draw');
+    var TARGET_W = 1500;
+    var done;
+
+    $('page-label').textContent = 'Page ' + layoutState.page + ' / ' + layoutState.numPages;
+    $('page-nav').style.display = layoutState.numPages > 1 ? 'flex' : 'none';
+
+    if (layoutState.pdfDoc) {
+      done = layoutState.pdfDoc.getPage(layoutState.page).then(function (page) {
+        var v1 = page.getViewport({ scale: 1 });
+        var scale = TARGET_W / v1.width;
+        var vp = page.getViewport({ scale: scale });
+        base.width = vp.width; base.height = vp.height;
+        return page.render({ canvasContext: base.getContext('2d'), viewport: vp }).promise;
+      });
+    } else if (layoutState.img) {
+      var img = layoutState.img;
+      var scale = Math.min(1.5, TARGET_W / img.width);
+      base.width = Math.round(img.width * scale);
+      base.height = Math.round(img.height * scale);
+      base.getContext('2d').drawImage(img, 0, 0, base.width, base.height);
+      done = Promise.resolve();
+    } else {
+      return Promise.resolve();
+    }
+
+    return done.then(function () {
+      draw.width = base.width;
+      draw.height = base.height;
+      redrawMarkup();
+    });
+  }
+
+  function pageShapes() {
+    var p = String(layoutState.page);
+    if (!sheet.layout.pages[p]) sheet.layout.pages[p] = [];
+    return sheet.layout.pages[p];
+  }
+
+  function redrawMarkup(ctx2) {
+    var draw = $('layout-canvas-draw');
+    var ctx = ctx2 || draw.getContext('2d');
+    if (!ctx2) ctx.clearRect(0, 0, draw.width, draw.height);
+    var W = draw.width, Hh = draw.height;
+    pageShapes().forEach(function (sh) { drawShape(ctx, sh, W, Hh); });
+  }
+
+  function drawShape(ctx, sh, W, Hh) {
+    ctx.save();
+    if (sh.type === 'text') {
+      ctx.fillStyle = sh.color;
+      ctx.font = 'bold ' + Math.round(W * 0.022) + 'px -apple-system, Helvetica, Arial';
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 4;
+      ctx.strokeText(sh.text, sh.x * W, sh.y * Hh);
+      ctx.fillText(sh.text, sh.x * W, sh.y * Hh);
+    } else {
+      ctx.strokeStyle = sh.color;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      if (sh.type === 'highlight') {
+        ctx.globalAlpha = 0.35;
+        ctx.lineWidth = W * 0.012;
+      } else {
+        ctx.lineWidth = W * 0.0035;
+      }
+      ctx.beginPath();
+      sh.pts.forEach(function (pt, i) {
+        var x = pt[0] * W, y = pt[1] * Hh;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function canvasPoint(e) {
+    var draw = $('layout-canvas-draw');
+    var r = draw.getBoundingClientRect();
+    var cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+    var cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+    return [cx / r.width, cy / r.height];
+  }
+
+  function bindMarkupCanvas() {
+    var draw = $('layout-canvas-draw');
+
+    function start(e) {
+      if (!sheet.layout.blobId) return;
+      var pt = canvasPoint(e);
+      if (layoutState.tool === 'text') {
+        var txt = prompt('Label text (e.g. "P1 — meter position"):');
+        if (txt && txt.trim()) {
+          pageShapes().push({ type: 'text', text: txt.trim(), x: pt[0], y: pt[1], color: layoutState.color });
+          redrawMarkup();
+          persist();
+        }
+        return;
+      }
+      e.preventDefault();
+      layoutState.drawing = true;
+      layoutState.current = { type: layoutState.tool, color: layoutState.color, pts: [pt] };
+    }
+    function move(e) {
+      if (!layoutState.drawing) return;
+      e.preventDefault();
+      layoutState.current.pts.push(canvasPoint(e));
+      redrawMarkup();
+      drawShape(draw.getContext('2d'), layoutState.current, draw.width, draw.height);
+    }
+    function end() {
+      if (!layoutState.drawing) return;
+      layoutState.drawing = false;
+      if (layoutState.current.pts.length > 1) {
+        pageShapes().push(layoutState.current);
+        persist();
+      }
+      layoutState.current = null;
+      redrawMarkup();
+    }
+
+    draw.addEventListener('pointerdown', start);
+    draw.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+  }
+
+  /** Composite base + markup of every page/image into JPEG data URLs (for exports). */
+  function layoutComposites() {
+    if (!sheet.layout || !sheet.layout.blobId) return Promise.resolve([]);
+    return Store.getBlob(sheet.layout.blobId).then(function (blob) {
+      if (!blob) return [];
+      var results = [];
+      if (sheet.layout.isPdf && typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdfjs/pdf.worker.min.js';
+        return blob.arrayBuffer().then(function (buf) {
+          return pdfjsLib.getDocument({ data: buf }).promise;
+        }).then(function (doc) {
+          var chain = Promise.resolve();
+          for (var p = 1; p <= doc.numPages; p++) {
+            (function (pageNo) {
+              chain = chain.then(function () {
+                return doc.getPage(pageNo).then(function (page) {
+                  var v1 = page.getViewport({ scale: 1 });
+                  var vp = page.getViewport({ scale: 1400 / v1.width });
+                  var c = document.createElement('canvas');
+                  c.width = vp.width; c.height = vp.height;
+                  var ctx = c.getContext('2d');
+                  ctx.fillStyle = '#fff';
+                  ctx.fillRect(0, 0, c.width, c.height);
+                  return page.render({ canvasContext: ctx, viewport: vp }).promise.then(function () {
+                    (sheet.layout.pages[String(pageNo)] || []).forEach(function (sh) { drawShape(ctx, sh, c.width, c.height); });
+                    results.push({ page: pageNo, dataUrl: c.toDataURL('image/jpeg', 0.85), w: c.width, h: c.height });
+                  });
+                });
+              });
+            })(p);
+          }
+          return chain.then(function () { return results; });
+        });
+      }
+      // image layout
+      return new Promise(function (resolve) {
+        var img = new Image();
+        img.onload = function () {
+          var scale = Math.min(1.5, 1400 / img.width);
+          var c = document.createElement('canvas');
+          c.width = Math.round(img.width * scale);
+          c.height = Math.round(img.height * scale);
+          var ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0, c.width, c.height);
+          (sheet.layout.pages['1'] || []).forEach(function (sh) { drawShape(ctx, sh, c.width, c.height); });
+          resolve([{ page: 1, dataUrl: c.toDataURL('image/jpeg', 0.85), w: c.width, h: c.height }]);
+        };
+        img.onerror = function () { resolve([]); };
+        img.src = URL.createObjectURL(blob);
+      });
+    });
+  }
+
+  /* ================= Export ================= */
+
+  function collectAssets() {
+    // photo data URLs keyed by id, plus layout composites
+    var ids = [];
+    sheet.entries.forEach(function (en) { ids = ids.concat(en.photoIds); });
+    var photos = {};
+    var photoJobs = ids.map(function (id) {
+      return Store.getBlob(id).then(function (blob) {
+        if (!blob) return;
+        return Store.blobToDataURL(blob).then(function (durl) {
+          return new Promise(function (resolve) {
+            var img = new Image();
+            img.onload = function () { photos[id] = { dataUrl: durl, w: img.width, h: img.height }; resolve(); };
+            img.onerror = function () { resolve(); };
+            img.src = durl;
+          });
+        });
+      });
+    });
+    return Promise.all(photoJobs).then(function () {
+      return layoutComposites().then(function (layouts) {
+        return { photos: photos, layouts: layouts };
+      });
+    });
+  }
+
+  function withAssets(fn, statusMsg) {
+    readDetailsForm();
+    persist();
+    var st = $('export-status');
+    st.textContent = statusMsg || 'Preparing export…';
+    collectAssets().then(function (assets) {
+      return fn(sheet, assets);
+    }).then(function (msg) {
+      st.textContent = msg || 'Done.';
+    }).catch(function (e) {
+      console.error(e);
+      st.textContent = 'Export failed: ' + e.message;
+      toast('Export failed — ' + e.message);
+    });
+  }
+
+  function renderSummary() {
+    readDetailsForm();
+    var s = sheet;
+    var dur = '—';
+    if (s.times.start && s.times.finish) {
+      var ms = new Date(s.times.finish) - new Date(s.times.start);
+      if (ms > 0) dur = Math.floor(ms / 3600000) + 'h ' + Math.floor(ms % 3600000 / 60000) + 'm';
+    }
+    var photoCount = s.entries.reduce(function (n, e) { return n + e.photoIds.length; }, 0);
+    $('export-summary').innerHTML =
+      '<b>' + esc(s.project || 'Untitled') + '</b> — ' + esc(s.jobNo || 'no job no.') + '<br>' +
+      esc(fmtDate(s.date)) + ' · ' + esc(s.operative || 'operative not set') + '<br>' +
+      'Survey: ' + esc(s.surveyType || '—') + '<br>' +
+      'Meter: ' + esc(s.equipment.meter || '—') + ' · Vibration: ' + esc(s.equipment.vibKit || '—') + '<br>' +
+      'Duration: ' + dur + '<br>' +
+      s.locations.length + ' survey location(s) · ' + s.entries.length + ' log entries · ' + photoCount + ' photos' +
+      (s.layout.blobId ? '<br>Layout: ' + esc(s.layout.name) : '');
+  }
+
+  /* ================= Wire-up ================= */
+
+  function bindEvents() {
+    $('btn-new-sheet').addEventListener('click', function () {
+      var s = newSheet();
+      sheets.push(s);
+      persist();
+      openSheet(s.id);
+    });
+
+    $('btn-back').addEventListener('click', function () {
+      readDetailsForm();
+      persist();
+      renderHome();
+      showScreen('home');
+    });
+
+    $('btn-delete-sheet').addEventListener('click', function () {
+      if (!confirm('Delete this whole sheet? This cannot be undone.')) return;
+      sheet.entries.forEach(function (en) { en.photoIds.forEach(function (p) { Store.deleteBlob(p); }); });
+      if (sheet.layout.blobId) Store.deleteBlob(sheet.layout.blobId);
+      sheets = sheets.filter(function (s) { return s.id !== sheet.id; });
+      Store.saveSheets(sheets);
+      sheet = null;
+      renderHome();
+      showScreen('home');
+    });
+
+    document.querySelectorAll('.tab-btn').forEach(function (b) {
+      b.addEventListener('click', function () { showTab(b.dataset.tab); });
+    });
+
+    // autosave on any details input
+    document.querySelectorAll('#tab-details input, #tab-details select, #tab-details textarea').forEach(function (el) {
+      el.addEventListener('input', scheduleSave);
+    });
+
+    $('btn-fetch-weather').addEventListener('click', fetchWeather);
+
+    // map
+    $('btn-map-search').addEventListener('click', mapSearch);
+    $('map-search').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); mapSearch(); } });
+    $('btn-locate').addEventListener('click', locateMe);
+    $('btn-layer').addEventListener('click', function () {
+      satellite = !satellite;
+      if (satellite) { map.removeLayer(osmLayer); satLayer.addTo(map); }
+      else { map.removeLayer(satLayer); osmLayer.addTo(map); }
+    });
+
+    // log
+    $('btn-start-now').addEventListener('click', function () {
+      $('f-start').value = nowLocalInput();
+      scheduleSave(); updateDuration();
+      toast('Monitoring started');
+    });
+    $('btn-finish-now').addEventListener('click', function () {
+      $('f-finish').value = nowLocalInput();
+      scheduleSave(); updateDuration();
+      toast('Monitoring finished');
+    });
+    $('f-start').addEventListener('input', function () { scheduleSave(); updateDuration(); });
+    $('f-finish').addEventListener('input', function () { scheduleSave(); updateDuration(); });
+
+    $('e-photo').addEventListener('change', function (e) {
+      var files = Array.from(e.target.files || []);
+      e.target.value = '';
+      if (!files.length) return;
+      toast('Adding photo…');
+      var chain = Promise.resolve();
+      files.forEach(function (f) {
+        chain = chain.then(function () {
+          return ingestPhoto(f).then(function (id) {
+            pendingPhotos.push(id);
+            renderComposerPreviews();
+          });
+        });
+      });
+      chain.catch(function () { toast('Could not read one of the photos'); });
+    });
+
+    $('btn-add-entry').addEventListener('click', addEntry);
+
+    // layout
+    $('layout-file').addEventListener('change', function (e) {
+      var f = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (f) loadLayoutFile(f);
+    });
+    document.querySelectorAll('.markup-toolbar .tool-btn[data-tool]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.tool-btn[data-tool]').forEach(function (x) { x.classList.remove('active'); });
+        b.classList.add('active');
+        layoutState.tool = b.dataset.tool;
+      });
+    });
+    document.querySelectorAll('.color-btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.color-btn').forEach(function (x) { x.classList.remove('active'); });
+        b.classList.add('active');
+        layoutState.color = b.dataset.color;
+      });
+    });
+    $('btn-undo').addEventListener('click', function () {
+      pageShapes().pop();
+      redrawMarkup();
+      persist();
+    });
+    $('btn-clear-markup').addEventListener('click', function () {
+      if (!confirm('Clear all markup on this page?')) return;
+      sheet.layout.pages[String(layoutState.page)] = [];
+      redrawMarkup();
+      persist();
+    });
+    $('btn-prev-page').addEventListener('click', function () {
+      if (layoutState.page > 1) { layoutState.page--; renderLayoutPage(); }
+    });
+    $('btn-next-page').addEventListener('click', function () {
+      if (layoutState.page < layoutState.numPages) { layoutState.page++; renderLayoutPage(); }
+    });
+    bindMarkupCanvas();
+
+    // export
+    $('btn-export-pdf').addEventListener('click', function () {
+      withAssets(function (s, a) { return Exporter.toPDF(s, a, { download: true }); }, 'Building PDF…');
+    });
+    $('btn-export-email').addEventListener('click', function () {
+      withAssets(function (s, a) { return Exporter.shareByEmail(s, a); }, 'Building PDF for sharing…');
+    });
+    $('btn-export-word').addEventListener('click', function () {
+      withAssets(function (s, a) { return Exporter.toWord(s, a); }, 'Building Word document…');
+    });
+    $('btn-export-excel').addEventListener('click', function () {
+      withAssets(function (s, a) { return Exporter.toExcel(s, a); }, 'Building spreadsheet…');
+    });
+
+    // photo modal
+    $('photo-modal-close').addEventListener('click', function () { $('photo-modal').classList.add('hidden'); });
+    $('photo-modal').addEventListener('click', function (e) {
+      if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+    });
+  }
+
+  /* ================= Boot ================= */
+
+  function boot() {
+    bindEvents();
+    renderHome();
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(function () { /* offline shell optional */ });
+    }
+  }
+
+  boot();
+
+  // expose a couple of helpers for the exporter
+  window.AppHelpers = { locationName: locationName, fmtDate: fmtDate, fmtTime: fmtTime };
+})();

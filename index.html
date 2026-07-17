@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ACL Monitor">
+  <meta name="theme-color" content="#0a2540">
+  <title>ACL Noise Monitoring</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ============ HOME SCREEN ============ -->
+  <div id="screen-home" class="screen active">
+    <header class="app-header">
+      <div class="app-header-inner">
+        <div class="brand">
+          <div class="brand-logo">ACL</div>
+          <div>
+            <h1>Noise Monitoring</h1>
+            <p class="subtitle">Site sheets &amp; survey logs</p>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main class="home-main">
+      <div class="home-actions">
+        <button class="btn btn-primary btn-lg" id="btn-new-sheet">＋ New Monitoring Sheet</button>
+      </div>
+      <h2 class="section-title">My Sheets</h2>
+      <div id="sheet-list" class="sheet-list"></div>
+      <div id="home-empty" class="empty-state hidden">
+        <div class="empty-icon">📋</div>
+        <p>No monitoring sheets yet.</p>
+        <p class="muted">Tap <strong>New Monitoring Sheet</strong> to start a survey.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ SHEET SCREEN ============ -->
+  <div id="screen-sheet" class="screen">
+    <header class="app-header sheet-header">
+      <div class="app-header-inner">
+        <button class="header-btn" id="btn-back">‹ Sheets</button>
+        <div class="header-title">
+          <span id="sheet-title-label">Sheet</span>
+          <span id="save-indicator" class="save-indicator">Saved</span>
+        </div>
+        <button class="header-btn" id="btn-delete-sheet" title="Delete sheet">🗑</button>
+      </div>
+    </header>
+
+    <main class="sheet-main">
+
+      <!-- ---------- DETAILS TAB ---------- -->
+      <section class="tab-panel active" id="tab-details">
+        <div class="card">
+          <h3 class="card-title">Survey Details</h3>
+          <div class="field">
+            <label>Project / Site Name</label>
+            <input type="text" id="f-project" placeholder="e.g. Riverside Development">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Job Number</label>
+              <input type="text" id="f-jobno" placeholder="e.g. ACL-2026-041">
+            </div>
+            <div class="field">
+              <label>Date</label>
+              <input type="date" id="f-date">
+            </div>
+          </div>
+          <div class="field">
+            <label>Operative / Engineer</label>
+            <input type="text" id="f-operative" placeholder="Name of operative">
+          </div>
+          <div class="field">
+            <label>Client</label>
+            <input type="text" id="f-client" placeholder="Client name">
+          </div>
+          <div class="field">
+            <label>Address / Location</label>
+            <textarea id="f-address" rows="2" placeholder="Site address"></textarea>
+          </div>
+          <div class="field">
+            <label>Survey Type</label>
+            <select id="f-surveytype">
+              <option value="">Select…</option>
+              <option>Noise monitoring — long term</option>
+              <option>Noise monitoring — attended</option>
+              <option>Short samples — building services survey</option>
+              <option>Sound insulation testing</option>
+              <option>Vibration monitoring</option>
+              <option>Noise &amp; vibration monitoring</option>
+              <option>Other (see notes)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Survey Description / Purpose</label>
+            <textarea id="f-description" rows="2" placeholder="e.g. BS 4142 background survey, demolition noise monitoring…"></textarea>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title-row">
+            <h3 class="card-title">Weather Conditions</h3>
+            <button class="btn btn-small" id="btn-fetch-weather">☁︎ Auto-fill</button>
+          </div>
+          <p class="hint" id="weather-hint">Auto-fill uses your GPS position and Open-Meteo live data.</p>
+          <div class="field-row">
+            <div class="field">
+              <label>Conditions</label>
+              <select id="f-wx-cond">
+                <option value="">Select…</option>
+                <option>Sunny / clear</option>
+                <option>Partly cloudy</option>
+                <option>Cloudy</option>
+                <option>Overcast</option>
+                <option>Fog / mist</option>
+                <option>Drizzle</option>
+                <option>Rain</option>
+                <option>Heavy rain</option>
+                <option>Snow</option>
+                <option>Thunderstorm</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Temp (°C)</label>
+              <input type="number" id="f-wx-temp" inputmode="decimal" placeholder="°C">
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Wind Speed (m/s)</label>
+              <input type="number" id="f-wx-wind" inputmode="decimal" placeholder="m/s">
+            </div>
+            <div class="field">
+              <label>Wind Direction</label>
+              <input type="text" id="f-wx-winddir" placeholder="e.g. SW">
+            </div>
+          </div>
+          <div class="field">
+            <label>Weather Notes</label>
+            <input type="text" id="f-wx-notes" placeholder="e.g. dry road surface, ground damp…">
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Equipment</h3>
+          <div class="field">
+            <label>Noise Meter</label>
+            <select id="f-meter">
+              <option value="">Select…</option>
+              <option>NTi XL2 — 1</option>
+              <option>NTi XL2 — 2</option>
+              <option>NTi XL2 — 3</option>
+              <option>NTi XL3 — 1</option>
+              <option>NTi XL3 — 2</option>
+              <option>NTi XL3 — 3</option>
+              <option>Other (see notes)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Vibration Kit</label>
+            <select id="f-vibkit">
+              <option value="">None</option>
+              <option>Vibration Kit 1</option>
+              <option>Vibration Kit 2</option>
+              <option>Vibration Kit 3</option>
+              <option>Other (see notes)</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Calibration Check — Start (dB)</label>
+              <input type="text" id="f-cal-start" inputmode="decimal" placeholder="e.g. 113.9">
+            </div>
+            <div class="field">
+              <label>Calibration Check — End (dB)</label>
+              <input type="text" id="f-cal-end" inputmode="decimal" placeholder="e.g. 113.9">
+            </div>
+          </div>
+          <div class="field">
+            <label>Equipment Notes</label>
+            <input type="text" id="f-equip-notes" placeholder="Serial numbers, windshield, tripod height…">
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- MAP TAB ---------- -->
+      <section class="tab-panel" id="tab-map">
+        <div class="map-toolbar">
+          <input type="search" id="map-search" placeholder="Search address or place…">
+          <button class="btn btn-small" id="btn-map-search">Go</button>
+          <button class="btn btn-small" id="btn-locate">📍</button>
+          <button class="btn btn-small" id="btn-layer">🛰</button>
+        </div>
+        <div id="map"></div>
+        <div class="map-hint">Tap the map to add a survey location. Tap a marker for its OS grid reference and coordinates.</div>
+        <div class="card">
+          <h3 class="card-title">Survey Locations</h3>
+          <div id="location-list" class="location-list"></div>
+          <p class="muted" id="location-empty">No locations yet — tap the map to add measurement positions.</p>
+        </div>
+      </section>
+
+      <!-- ---------- LOG TAB ---------- -->
+      <section class="tab-panel" id="tab-log">
+        <div class="card timer-card">
+          <div class="timer-row">
+            <div class="timer-block">
+              <label>Start</label>
+              <input type="datetime-local" id="f-start">
+              <button class="btn btn-small btn-green" id="btn-start-now">▶ Start now</button>
+            </div>
+            <div class="timer-block">
+              <label>Finish</label>
+              <input type="datetime-local" id="f-finish">
+              <button class="btn btn-small btn-red" id="btn-finish-now">■ Finish now</button>
+            </div>
+          </div>
+          <div class="duration-line" id="duration-line">Duration: —</div>
+        </div>
+
+        <div class="card composer-card">
+          <h3 class="card-title">Add Log Entry</h3>
+          <div class="field">
+            <textarea id="e-text" rows="2" placeholder="Note… e.g. HGV entered site, piling started, dominant source road traffic"></textarea>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Meter File No.</label>
+              <input type="text" id="e-file" placeholder="e.g. 2026-07-17_012">
+            </div>
+            <div class="field">
+              <label>Location</label>
+              <select id="e-location"><option value="">—</option></select>
+            </div>
+          </div>
+          <div class="composer-actions">
+            <label class="btn btn-small photo-btn">
+              📷 Photo
+              <input type="file" id="e-photo" accept="image/*" capture="environment" multiple hidden>
+            </label>
+            <span id="e-photo-count" class="muted"></span>
+            <button class="btn btn-primary" id="btn-add-entry">＋ Add entry</button>
+          </div>
+          <div id="e-photo-previews" class="photo-strip"></div>
+          <p class="hint">The current time is stamped automatically when you add the entry.</p>
+        </div>
+
+        <h2 class="section-title">Log <span id="entry-count" class="count-chip"></span></h2>
+        <div id="entry-list" class="entry-list"></div>
+        <p class="muted center" id="entry-empty">No entries yet.</p>
+      </section>
+
+      <!-- ---------- LAYOUT TAB ---------- -->
+      <section class="tab-panel" id="tab-layout">
+        <div class="card">
+          <div class="card-title-row">
+            <h3 class="card-title">Site Layout Plan</h3>
+            <label class="btn btn-small">
+              ⤒ Load PDF / image
+              <input type="file" id="layout-file" accept="application/pdf,image/*" hidden>
+            </label>
+          </div>
+          <p class="hint">Load a site layout (PDF or image) and mark it up with measurement positions and notes.</p>
+          <div id="layout-empty" class="empty-state">
+            <div class="empty-icon">🗺</div>
+            <p class="muted">No layout loaded.</p>
+          </div>
+          <div id="layout-editor" class="hidden">
+            <div class="markup-toolbar">
+              <button class="tool-btn active" data-tool="pen" title="Pen">✏️</button>
+              <button class="tool-btn" data-tool="highlight" title="Highlighter">🖍</button>
+              <button class="tool-btn" data-tool="text" title="Text label">🅰</button>
+              <span class="tool-sep"></span>
+              <button class="color-btn active" data-color="#e11d48" style="background:#e11d48"></button>
+              <button class="color-btn" data-color="#2563eb" style="background:#2563eb"></button>
+              <button class="color-btn" data-color="#16a34a" style="background:#16a34a"></button>
+              <button class="color-btn" data-color="#111111" style="background:#111111"></button>
+              <span class="tool-sep"></span>
+              <button class="tool-btn" id="btn-undo" title="Undo">↩︎</button>
+              <button class="tool-btn" id="btn-clear-markup" title="Clear page markup">✕</button>
+            </div>
+            <div class="page-nav" id="page-nav">
+              <button class="btn btn-small" id="btn-prev-page">‹</button>
+              <span id="page-label">Page 1 / 1</span>
+              <button class="btn btn-small" id="btn-next-page">›</button>
+            </div>
+            <div id="layout-canvas-wrap" class="layout-canvas-wrap">
+              <canvas id="layout-canvas-base"></canvas>
+              <canvas id="layout-canvas-draw"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- EXPORT TAB ---------- -->
+      <section class="tab-panel" id="tab-export">
+        <div class="card">
+          <h3 class="card-title">Export &amp; Share</h3>
+          <p class="hint">Exports include survey details, weather, equipment, locations with grid references, the full timestamped log with photos, and layout markup.</p>
+          <div class="export-grid">
+            <button class="export-btn" id="btn-export-pdf">
+              <span class="export-icon">📄</span>
+              <span>PDF Report</span>
+            </button>
+            <button class="export-btn" id="btn-export-email">
+              <span class="export-icon">✉️</span>
+              <span>Email / Share</span>
+            </button>
+            <button class="export-btn" id="btn-export-word">
+              <span class="export-icon">📝</span>
+              <span>Word (.doc)</span>
+            </button>
+            <button class="export-btn" id="btn-export-excel">
+              <span class="export-icon">📊</span>
+              <span>Excel (.xls)</span>
+            </button>
+          </div>
+          <p class="hint" id="export-status"></p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Sheet Summary</h3>
+          <div id="export-summary" class="summary-block"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom tab bar -->
+    <nav class="tab-bar">
+      <button class="tab-btn active" data-tab="details"><span class="tab-icon">📋</span>Details</button>
+      <button class="tab-btn" data-tab="map"><span class="tab-icon">🗺</span>Map</button>
+      <button class="tab-btn" data-tab="log"><span class="tab-icon">⏱</span>Log</button>
+      <button class="tab-btn" data-tab="layout"><span class="tab-icon">✏️</span>Layout</button>
+      <button class="tab-btn" data-tab="export"><span class="tab-icon">⇪</span>Export</button>
+    </nav>
+  </div>
+
+  <!-- Photo viewer modal -->
+  <div id="photo-modal" class="modal hidden">
+    <button class="modal-close" id="photo-modal-close">✕</button>
+    <img id="photo-modal-img" alt="Photo">
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="vendor/jspdf/jspdf.umd.min.js"></script>
+  <script src="vendor/pdfjs/pdf.min.js"></script>
+  <script src="js/gridref.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
