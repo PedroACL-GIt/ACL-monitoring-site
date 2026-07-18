@@ -461,12 +461,27 @@
     if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.3));
   }
 
+  function googleMapsUrl(lat, lng) {
+    // satellite view centred on the point
+    return 'https://www.google.com/maps/@' + lat.toFixed(6) + ',' + lng.toFixed(6) + ',150m/data=!3m1!1e3';
+  }
+
   function popupHtml(loc) {
     return '<div class="gridref-popup">' +
       '<div class="gr">' + esc(loc.name) + '</div>' +
       (loc.gridRef ? 'OS Grid: <b>' + esc(loc.gridRef) + '</b><br>' : '') +
-      'Lat: ' + loc.lat.toFixed(5) + '<br>Lng: ' + loc.lng.toFixed(5) +
+      'Lat: ' + loc.lat.toFixed(5) + '<br>Lng: ' + loc.lng.toFixed(5) + '<br>' +
+      '<a href="' + googleMapsUrl(loc.lat, loc.lng) + '" target="_blank" rel="noopener">Open in Google Maps ↗</a>' +
       '</div>';
+  }
+
+  /** Parse "51.4545, -2.5879"-style text (as copied from Google Maps). */
+  function parseLatLng(str) {
+    var m = String(str || '').match(/(-?\d{1,2}\.\d+)[,;\s]+(-?\d{1,3}\.\d+)/);
+    if (!m) return null;
+    var lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+    return { lat: lat, lng: lng };
   }
 
   function drawMarkers() {
@@ -516,11 +531,14 @@
     sheet.locations.forEach(function (loc, idx) {
       var el = document.createElement('div');
       el.className = 'location-item';
+      var gLink = (loc.lat != null && loc.lng != null)
+        ? '<a class="location-google" href="' + googleMapsUrl(loc.lat, loc.lng) + '" target="_blank" rel="noopener" title="Open in Google Maps satellite">G↗</a>'
+        : '';
       el.innerHTML =
         '<div class="location-pin"><span class="pos-badge">' + (idx + 1) + '</span></div>' +
         '<div class="location-body">' +
           '<input class="location-name" value="' + esc(loc.name) + '" placeholder="Position name">' +
-          '<div class="location-coords">' + esc(locationCoordsText(loc)) + '</div>' +
+          '<div class="location-coords">' + esc(locationCoordsText(loc)) + ' ' + gLink + '</div>' +
           '<textarea class="location-params" rows="1" placeholder="Parameters… e.g. façade 1 m, tripod 1.5 m, LAeq 15-min">' + esc(loc.params) + '</textarea>' +
         '</div>' +
         '<button class="location-del">✕</button>';
@@ -1471,6 +1489,23 @@
       satellite = !satellite;
       if (satellite) { map.removeLayer(osmLayer); satLayer.addTo(map); }
       else { map.removeLayer(satLayer); osmLayer.addTo(map); }
+    });
+    $('btn-google-maps').addEventListener('click', function () {
+      var c = map ? map.getCenter() : { lat: 52.5, lng: -1.9 };
+      window.open(googleMapsUrl(c.lat, c.lng), '_blank', 'noopener');
+    });
+    $('btn-coord-add').addEventListener('click', function () {
+      var parsed = parseLatLng($('coord-input').value);
+      if (!parsed) {
+        toast('Could not read coordinates — paste them as "51.4545, -2.5879"');
+        return;
+      }
+      addLocation(parsed.lat, parsed.lng);
+      $('coord-input').value = '';
+      if (map) map.setView([parsed.lat, parsed.lng], Math.max(map.getZoom(), 17));
+    });
+    $('coord-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); $('btn-coord-add').click(); }
     });
 
     // log

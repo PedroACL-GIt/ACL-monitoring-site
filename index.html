@@ -319,11 +319,17 @@
           <button class="btn btn-small" id="btn-map-search">Go</button>
           <button class="btn btn-small" id="btn-locate">📍</button>
           <button class="btn btn-small" id="btn-layer">🛰</button>
+          <button class="btn btn-small btn-google" id="btn-google-maps" title="Open this view in Google Maps satellite">G</button>
         </div>
         <div id="map"></div>
         <div class="map-hint">Tap the map to add a survey location. Tap a marker for its OS grid reference and coordinates.</div>
         <div class="card">
           <h3 class="card-title">Survey Locations</h3>
+          <div class="coord-add-row">
+            <input type="text" id="coord-input" placeholder="Paste from Google Maps: 51.45451, -2.58791" inputmode="text">
+            <button class="btn btn-small" id="btn-coord-add">＋ Add</button>
+          </div>
+          <p class="hint">Tip: in Google Maps, press and hold a spot — the coordinates appear and can be copied, then pasted here to drop the position in this app.</p>
           <div id="location-list" class="location-list"></div>
           <p class="muted" id="location-empty">No locations yet — tap the map to add measurement positions.</p>
         </div>

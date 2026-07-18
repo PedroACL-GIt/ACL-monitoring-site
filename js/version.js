@@ -6,8 +6,17 @@
   'use strict';
 
   global.APP = {
-    version: '1.8.0',
+    version: '1.9.0',
     changelog: [
+      {
+        version: '1.9.0',
+        date: '2026-07-18',
+        notes: [
+          'Google Maps hand-off: G button opens Google satellite at the current map view; each position and marker popup links to its spot in Google Maps',
+          'Paste coordinates copied from Google Maps (press-and-hold a spot there) to drop a position here',
+          'True Google basemap in-app remains possible later with a Google API key'
+        ]
+      },
       {
         version: '1.8.0',
         date: '2026-07-18',
