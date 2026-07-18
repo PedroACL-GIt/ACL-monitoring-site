@@ -1,19 +1,21 @@
 /* ACL Noise Monitoring — iOS-style mobile-first UI */
 
 :root {
-  --navy: #0a2540;
-  --navy-2: #123a63;
-  --accent: #0e7490;
-  --accent-light: #e0f2f7;
-  --bg: #f2f4f7;
+  /* ACL — Acoustic Consultants Ltd brand palette */
+  --navy: #70150e;          /* deep burgundy (primary dark) */
+  --navy-2: #8f1c13;        /* lighter burgundy */
+  --accent: #8f1c13;        /* interactive / primary */
+  --accent-light: #f9e9ce;  /* light gold tint */
+  --gold: #f1aa07;          /* ACL amber accent */
+  --bg: #f7efe6;            /* warm cream */
   --card: #ffffff;
-  --text: #1c2733;
-  --muted: #6b7887;
-  --line: #e3e8ee;
+  --text: #2a1a16;          /* near-black brown */
+  --muted: #8a7a74;         /* warm grey */
+  --line: #eadfd2;          /* warm beige line */
   --green: #16a34a;
   --red: #dc2626;
   --radius: 14px;
-  --shadow: 0 1px 3px rgba(16, 37, 62, 0.10), 0 4px 14px rgba(16, 37, 62, 0.06);
+  --shadow: 0 1px 3px rgba(74, 24, 14, 0.10), 0 4px 14px rgba(74, 24, 14, 0.06);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top: env(safe-area-inset-top, 0px);
 }
@@ -55,13 +57,8 @@ html, body {
   padding: 12px 16px;
   min-height: 56px;
 }
-.brand { display: flex; align-items: center; gap: 12px; }
-.brand-logo {
-  width: 44px; height: 44px;
-  border-radius: 11px;
-  display: block;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-}
+.brand { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 4px 0; }
+.brand-lockup { height: 32px; width: auto; display: block; }
 .app-header h1 { font-size: 1.15rem; margin: 0; font-weight: 700; }
 .subtitle { margin: 2px 0 0; font-size: 0.78rem; opacity: 0.75; }
 
@@ -104,8 +101,8 @@ html, body {
   display: flex; align-items: center; gap: 8px;
 }
 .count-chip {
-  background: var(--accent-light);
-  color: var(--accent);
+  background: var(--gold);
+  color: var(--text);
   border-radius: 999px;
   padding: 1px 9px;
   font-size: 0.75rem;
@@ -177,7 +174,7 @@ html, body {
   border-radius: 10px;
   font-size: 16px; /* prevents iOS zoom */
   font-family: inherit;
-  background: #fbfcfd;
+  background: #fdfaf5;
   color: var(--text);
   appearance: none;
   -webkit-appearance: none;
@@ -191,7 +188,7 @@ html, body {
 .field input:focus, .field select:focus, .field textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.12);
+  box-shadow: 0 0 0 3px rgba(143, 28, 19, 0.12);
 }
 .field-row { display: flex; gap: 10px; }
 .hint { font-size: 0.78rem; color: var(--muted); margin: 4px 0 10px; }
@@ -205,7 +202,7 @@ html, body {
   font-weight: 600;
   padding: 11px 16px;
   cursor: pointer;
-  background: #e9edf2;
+  background: #efe7dc;
   color: var(--text);
   transition: transform 0.05s;
 }
@@ -319,7 +316,7 @@ html, body {
   border-radius: 10px;
   font-size: 0.9rem;
   font-family: inherit;
-  background: #fbfcfd;
+  background: #fdfaf5;
   width: 100%;
 }
 .duration-line {
@@ -370,7 +367,7 @@ html, body {
   border-radius: 999px;
   padding: 2px 9px;
 }
-.entry-chip.loc { background: #fef3c7; color: #92400e; }
+.entry-chip.loc { background: #efdbd8; color: #821b14; }
 .entry-actions { margin-left: auto; display: flex; gap: 2px; }
 .entry-actions button { background: none; border: none; font-size: 0.95rem; cursor: pointer; color: var(--muted); padding: 3px 6px; }
 .entry-text { margin: 7px 0 0; font-size: 0.95rem; white-space: pre-wrap; }
@@ -388,7 +385,7 @@ html, body {
   width: 38px; height: 38px;
   border-radius: 9px;
   border: 1px solid var(--line);
-  background: #fbfcfd;
+  background: #fdfaf5;
   font-size: 16px;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -420,7 +417,7 @@ html, body {
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #eef1f4;
+  background: #efe8de;
   max-height: 64dvh;
 }
 .layout-canvas-wrap canvas { display: block; width: 100%; height: auto; }
@@ -439,7 +436,7 @@ html, body {
 }
 .export-btn {
   border: 1px solid var(--line);
-  background: #fbfcfd;
+  background: #fdfaf5;
   border-radius: var(--radius);
   padding: 18px 10px;
   font-family: inherit;

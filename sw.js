@@ -1,6 +1,6 @@
 /* Offline-first service worker: caches the app shell and CDN libraries.
    Map tiles, geocoding and weather stay network-only. */
-var CACHE = 'acl-nms-v2';
+var CACHE = 'acl-nms-v3';
 var SHELL = [
   './',
   './index.html',
@@ -11,6 +11,8 @@ var SHELL = [
   './js/gridref.js',
   './manifest.webmanifest',
   './icons/logo.svg',
+  './icons/acl-lockup.png',
+  './icons/logo-rounded-512.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-180.png',

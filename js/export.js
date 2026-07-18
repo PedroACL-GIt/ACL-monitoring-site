@@ -48,21 +48,24 @@
 
   /* ---------------- PDF ---------------- */
 
-  var logoCache;
-  function loadLogo() {
-    if (logoCache !== undefined) return Promise.resolve(logoCache);
-    return fetch('icons/logo-rounded-512.png')
+  var assetCache = {};
+  function loadAsset(url) {
+    if (url in assetCache) return Promise.resolve(assetCache[url]);
+    return fetch(url)
       .then(function (r) { return r.blob(); })
       .then(function (b) {
         return new Promise(function (resolve) {
           var fr = new FileReader();
-          fr.onload = function () { logoCache = fr.result; resolve(logoCache); };
-          fr.onerror = function () { logoCache = null; resolve(null); };
+          fr.onload = function () { assetCache[url] = fr.result; resolve(fr.result); };
+          fr.onerror = function () { assetCache[url] = null; resolve(null); };
           fr.readAsDataURL(b);
         });
       })
-      .catch(function () { logoCache = null; return null; });
+      .catch(function () { assetCache[url] = null; return null; });
   }
+  // white ACL lockup for dark banners; rounded app icon for white backgrounds
+  function loadLogo() { return loadAsset('icons/acl-lockup.png'); }
+  function loadIcon() { return loadAsset('icons/logo-rounded-512.png'); }
 
   function buildPDF(s, assets, logo) {
     if (!global.jspdf || !global.jspdf.jsPDF) throw new Error('PDF library not loaded — reload the app once online.');
@@ -76,13 +79,13 @@
 
     function heading(txt) {
       ensureSpace(14);
-      doc.setFillColor(10, 37, 64);
+      doc.setFillColor(112, 21, 14);
       doc.rect(M, y, PW - 2 * M, 8, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10.5);
       doc.text(txt, M + 3, y + 5.6);
-      doc.setTextColor(30, 40, 50);
+      doc.setTextColor(42, 26, 22);
       y += 12;
     }
 
@@ -102,11 +105,11 @@
       y += 2;
     }
 
-    // Title band
-    doc.setFillColor(10, 37, 64);
+    // Title band with ACL lockup (white logo, 648x150 px source)
+    doc.setFillColor(112, 21, 14);
     doc.rect(0, 0, PW, 30, 'F');
     if (logo) {
-      try { doc.addImage(logo, 'PNG', PW - M - 20, 5, 20, 20); } catch (e) { /* skip logo */ }
+      try { doc.addImage(logo, 'PNG', PW - M - 52, 9, 52, 12); } catch (e) { /* skip logo */ }
     }
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
@@ -115,7 +118,7 @@
     doc.setFontSize(9.5);
     doc.setFont('helvetica', 'normal');
     doc.text((s.project || 'Untitled survey') + (s.jobNo ? '   ·   Job ' + s.jobNo : ''), M, 21);
-    doc.setTextColor(30, 40, 50);
+    doc.setTextColor(42, 26, 22);
     y = 38;
 
     heading('SURVEY DETAILS');
@@ -192,7 +195,7 @@
         if (ln) meta += '   ·   ' + ln;
         var textLines = en.text ? doc.splitTextToSize(en.text, PW - 2 * M - 4) : [];
         ensureSpace(8 + textLines.length * 4.6);
-        doc.setFillColor(224, 242, 247);
+        doc.setFillColor(247, 239, 230);
         doc.rect(M, y, PW - 2 * M, 6, 'F');
         doc.setFont('helvetica', 'bold');
         doc.text(meta, M + 2, y + 4.2);
@@ -228,10 +231,10 @@
       y = M;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
-      doc.setTextColor(10, 37, 64);
+      doc.setTextColor(112, 21, 14);
       doc.text('SITE LAYOUT' + (assets.layouts.length > 1 ? ' — PAGE ' + lay.page : '') +
         (s.layout.name ? '  (' + s.layout.name + ')' : ''), M, y + 4);
-      doc.setTextColor(30, 40, 50);
+      doc.setTextColor(42, 26, 22);
       y += 10;
       var availW = PW - 2 * M, availH = PH - y - M;
       var scale = Math.min(availW / lay.w, availH / lay.h);
@@ -291,20 +294,20 @@
   /* ---------------- Word (.doc) ---------------- */
 
   function toWord(s, assets) {
-    return loadLogo().then(function (logo) { return buildWord(s, assets, logo); });
+    return loadIcon().then(function (logo) { return buildWord(s, assets, logo); });
   }
 
   function buildWord(s, assets, logo) {
     var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">' +
       '<head><meta charset="utf-8"><title>Noise Monitoring Sheet</title>' +
       '<style>' +
-      'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#1c2733}' +
-      'h1{background:#0a2540;color:#fff;padding:10px 12px;font-size:15pt}' +
-      'h2{color:#0a2540;border-bottom:2px solid #0a2540;padding-bottom:3px;font-size:12pt;margin-top:22px}' +
+      'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#2a1a16}' +
+      'h1{background:#70150e;color:#fff;padding:10px 12px;font-size:15pt}' +
+      'h2{color:#70150e;border-bottom:2px solid #70150e;padding-bottom:3px;font-size:12pt;margin-top:22px}' +
       'table{border-collapse:collapse;width:100%;margin:8px 0}' +
-      'td,th{border:1px solid #c6ced6;padding:5px 8px;font-size:10pt;vertical-align:top}' +
-      'th{background:#e0f2f7;text-align:left}' +
-      '.lbl{font-weight:bold;width:32%;background:#f2f4f7}' +
+      'td,th{border:1px solid #d9cbbd;padding:5px 8px;font-size:10pt;vertical-align:top}' +
+      'th{background:#f7efe6;text-align:left}' +
+      '.lbl{font-weight:bold;width:32%;background:#f7efe6}' +
       'img{max-width:320px;margin:4px}' +
       '</style></head><body>';
 
@@ -382,7 +385,7 @@
       return '<tr>' + cells.map(function (c) { return '<' + tag + '>' + esc(c) + '</' + tag + '>'; }).join('') + '</tr>';
     }
     var html = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8">' +
-      '<style>th{background:#0a2540;color:#fff;text-align:left}td,th{border:1px solid #b9c2cc;padding:4px 8px;font-family:Calibri,Arial;font-size:10pt}</style>' +
+      '<style>th{background:#70150e;color:#fff;text-align:left}td,th{border:1px solid #d0c2b4;padding:4px 8px;font-family:Calibri,Arial;font-size:10pt}</style>' +
       '</head><body><table>';
     html += row(['NOISE MONITORING SHEET'], true);
     html += row(['Project', s.project]) + row(['Job number', s.jobNo]) + row(['Date', fmtDate(s.date)]) +
