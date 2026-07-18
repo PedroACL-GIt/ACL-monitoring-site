@@ -512,6 +512,28 @@ html, body {
   background: rgba(255,255,255,0.94);
 }
 
+/* equipment manager */
+.header-btn-right { margin-left: auto; align-self: center; }
+.header-spacer { width: 60px; }
+.equip-list { display: flex; flex-direction: column; gap: 8px; }
+.equip-item { display: flex; gap: 8px; align-items: center; }
+.equip-item input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 16px;
+  font-family: inherit;
+  background: #fdfaf5;
+  color: var(--text);
+}
+.equip-item input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(143, 28, 19, 0.12);
+}
+.equip-del { background: none; border: none; color: var(--red); font-size: 1rem; cursor: pointer; padding: 4px 6px; }
+
 /* numbered position badge in location lists */
 .pos-badge {
   display: inline-flex;

@@ -85,6 +85,89 @@
     }, 400);
   }
 
+  /* ================= Equipment registry ================= */
+  /* Company-wide kit list (device-stored), editable under ⚙ Equipment.
+     Placeholder names until the real fleet is entered. */
+
+  var EQUIP_KEY = 'acl_nms_equipment_v1';
+
+  function loadEquipment() {
+    try {
+      var e = JSON.parse(localStorage.getItem(EQUIP_KEY));
+      if (e && Array.isArray(e.meters) && Array.isArray(e.vibKits)) return e;
+    } catch (err) { /* fall through to defaults */ }
+    return {
+      meters: ['NTi XL2 — 1', 'NTi XL2 — 2', 'NTi XL2 — 3', 'NTi XL3 — 1', 'NTi XL3 — 2', 'NTi XL3 — 3'],
+      vibKits: ['Vibration Kit 1', 'Vibration Kit 2', 'Vibration Kit 3']
+    };
+  }
+
+  var equipment = loadEquipment();
+
+  function saveEquipment() {
+    localStorage.setItem(EQUIP_KEY, JSON.stringify(equipment));
+    populateEquipSelects();
+  }
+
+  function populateEquipSelects() {
+    fillSelect($('f-meter'), 'Select…', equipment.meters, sheet && sheet.equipment.meter);
+    fillSelect($('f-vibkit'), 'None', equipment.vibKits, sheet && sheet.equipment.vibKit);
+  }
+
+  function fillSelect(sel, blankLabel, items, currentValue) {
+    if (!sel) return;
+    sel.innerHTML = '';
+    var o0 = document.createElement('option');
+    o0.value = '';
+    o0.textContent = blankLabel;
+    sel.appendChild(o0);
+    items.forEach(function (name) {
+      if (!name.trim()) return;
+      var o = document.createElement('option');
+      o.value = name;
+      o.textContent = name;
+      sel.appendChild(o);
+    });
+    var other = document.createElement('option');
+    other.value = 'Other (see notes)';
+    other.textContent = 'Other (see notes)';
+    sel.appendChild(other);
+    // keep a value saved on the sheet selectable even if removed from the registry
+    if (currentValue && !Array.prototype.some.call(sel.options, function (o) { return o.value === currentValue; })) {
+      var keep = document.createElement('option');
+      keep.value = currentValue;
+      keep.textContent = currentValue;
+      sel.appendChild(keep);
+    }
+  }
+
+  function renderEquipList(wrap, arr) {
+    wrap.innerHTML = '';
+    arr.forEach(function (name, i) {
+      var el = document.createElement('div');
+      el.className = 'equip-item';
+      el.innerHTML =
+        '<input value="' + esc(name) + '" placeholder="Name / ID, e.g. NTi XL2 — SN A2B-12345">' +
+        '<button class="equip-del" title="Remove">✕</button>';
+      el.querySelector('input').addEventListener('input', function (e) {
+        arr[i] = e.target.value;
+        saveEquipment();
+      });
+      el.querySelector('.equip-del').addEventListener('click', function () {
+        if (!confirm('Remove "' + (arr[i] || 'this item') + '" from the list? Sheets already using it keep their saved value.')) return;
+        arr.splice(i, 1);
+        saveEquipment();
+        renderEquipScreen();
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  function renderEquipScreen() {
+    renderEquipList($('meter-list'), equipment.meters);
+    renderEquipList($('vibkit-list'), equipment.vibKits);
+  }
+
   /* ================= Screens & tabs ================= */
 
   function showScreen(name) {
@@ -181,6 +264,7 @@
   ];
 
   function writeDetailsForm() {
+    populateEquipSelects();
     fieldMap.forEach(function (f) {
       var el = $(f[0]);
       if (el) el.value = f[1](sheet) || '';
@@ -1079,6 +1163,28 @@
       sheets.push(s);
       persist();
       openSheet(s.id);
+    });
+
+    $('btn-equipment').addEventListener('click', function () {
+      renderEquipScreen();
+      showScreen('equipment');
+    });
+    $('btn-equip-back').addEventListener('click', function () {
+      showScreen('home');
+    });
+    $('btn-add-meter').addEventListener('click', function () {
+      equipment.meters.push('');
+      saveEquipment();
+      renderEquipScreen();
+      var inputs = document.querySelectorAll('#meter-list input');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    });
+    $('btn-add-vibkit').addEventListener('click', function () {
+      equipment.vibKits.push('');
+      saveEquipment();
+      renderEquipScreen();
+      var inputs = document.querySelectorAll('#vibkit-list input');
+      if (inputs.length) inputs[inputs.length - 1].focus();
     });
 
     $('btn-back').addEventListener('click', function () {

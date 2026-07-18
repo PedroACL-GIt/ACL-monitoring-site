@@ -29,6 +29,7 @@
           <img class="brand-lockup" src="icons/acl-lockup.png" alt="Acoustic Consultants Ltd">
           <p class="subtitle">Noise monitoring · site sheets &amp; survey logs</p>
         </div>
+        <button class="header-btn header-btn-right" id="btn-equipment">⚙ Equipment</button>
       </div>
     </header>
     <main class="home-main">
@@ -41,6 +42,34 @@
         <div class="empty-icon">📋</div>
         <p>No monitoring sheets yet.</p>
         <p class="muted">Tap <strong>New Monitoring Sheet</strong> to start a survey.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ EQUIPMENT SCREEN ============ -->
+  <div id="screen-equipment" class="screen">
+    <header class="app-header sheet-header">
+      <div class="app-header-inner">
+        <button class="header-btn" id="btn-equip-back">‹ Back</button>
+        <div class="header-title">Company Equipment</div>
+        <span class="header-spacer"></span>
+      </div>
+    </header>
+    <main class="home-main">
+      <p class="hint">This list feeds the Noise Meter and Vibration Kit pickers on every sheet. Add, rename or remove kit here — existing sheets keep the value they were saved with.</p>
+      <div class="card">
+        <div class="card-title-row">
+          <h3 class="card-title">Noise Meters</h3>
+          <button class="btn btn-small" id="btn-add-meter">＋ Add</button>
+        </div>
+        <div id="meter-list" class="equip-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-title-row">
+          <h3 class="card-title">Vibration Kits</h3>
+          <button class="btn btn-small" id="btn-add-vibkit">＋ Add</button>
+        </div>
+        <div id="vibkit-list" class="equip-list"></div>
       </div>
     </main>
   </div>
@@ -169,27 +198,13 @@
           <h3 class="card-title">Equipment</h3>
           <div class="field">
             <label>Noise Meter</label>
-            <select id="f-meter">
-              <option value="">Select…</option>
-              <option>NTi XL2 — 1</option>
-              <option>NTi XL2 — 2</option>
-              <option>NTi XL2 — 3</option>
-              <option>NTi XL3 — 1</option>
-              <option>NTi XL3 — 2</option>
-              <option>NTi XL3 — 3</option>
-              <option>Other (see notes)</option>
-            </select>
+            <select id="f-meter"></select>
           </div>
           <div class="field">
             <label>Vibration Kit</label>
-            <select id="f-vibkit">
-              <option value="">None</option>
-              <option>Vibration Kit 1</option>
-              <option>Vibration Kit 2</option>
-              <option>Vibration Kit 3</option>
-              <option>Other (see notes)</option>
-            </select>
+            <select id="f-vibkit"></select>
           </div>
+          <p class="hint">Manage these lists under ⚙ Equipment on the home screen.</p>
           <div class="field-row">
             <div class="field">
               <label>Calibration Check — Start (dB)</label>
