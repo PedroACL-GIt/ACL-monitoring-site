@@ -6,8 +6,17 @@
   'use strict';
 
   global.APP = {
-    version: '1.9.0',
+    version: '1.9.1',
     changelog: [
+      {
+        version: '1.9.1',
+        date: '2026-07-18',
+        notes: [
+          'Fixed the G button not opening from the home-screen app (iOS blocks window.open in standalone mode)',
+          'Google Satellite Preview panel on the Map tab — live Google imagery of the current map view, inside the app',
+          'Google links now route to the Google Maps app when installed'
+        ]
+      },
       {
         version: '1.9.0',
         date: '2026-07-18',

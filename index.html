@@ -324,6 +324,20 @@
         <div id="map"></div>
         <div class="map-hint">Tap the map to add a survey location. Tap a marker for its OS grid reference and coordinates.</div>
         <div class="card">
+          <div class="card-title-row">
+            <h3 class="card-title">Google Satellite Preview</h3>
+            <button class="btn btn-small" id="btn-gpreview">Show</button>
+          </div>
+          <div id="gpreview-wrap" class="hidden">
+            <iframe id="gpreview" title="Google Maps satellite preview" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+            <div class="gpreview-actions">
+              <button class="btn btn-small" id="btn-gpreview-sync">⟳ Sync to map view</button>
+              <span class="hint">View-only. To copy an exact spot: tap G to open the Google Maps app, press-and-hold the spot, copy the coordinates and paste them below.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
           <h3 class="card-title">Survey Locations</h3>
           <div class="coord-add-row">
             <input type="text" id="coord-input" placeholder="Paste from Google Maps: 51.45451, -2.58791" inputmode="text">

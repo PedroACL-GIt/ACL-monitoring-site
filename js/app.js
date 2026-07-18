@@ -466,6 +466,20 @@
     return 'https://www.google.com/maps/@' + lat.toFixed(6) + ',' + lng.toFixed(6) + ',150m/data=!3m1!1e3';
   }
 
+  /** Open an external URL reliably from a home-screen web app.
+      window.open() is often blocked in iOS standalone mode, so click a
+      real anchor instead — this also lets iOS route Google Maps links
+      to the installed Google Maps app. */
+  function openExternal(url) {
+    var a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { a.remove(); }, 100);
+  }
+
   function popupHtml(loc) {
     return '<div class="gridref-popup">' +
       '<div class="gr">' + esc(loc.name) + '</div>' +
@@ -586,6 +600,16 @@
       map.setView([pos.coords.latitude, pos.coords.longitude], 18);
       toast('Tap the map to drop a survey position');
     }, function () { toast('Location permission denied'); }, { enableHighAccuracy: true, timeout: 12000 });
+  }
+
+  /** Point the embedded Google satellite frame at the current map view. */
+  function syncGooglePreview() {
+    var frame = $('gpreview');
+    if (!frame || $('gpreview-wrap').classList.contains('hidden')) return;
+    var c = map ? map.getCenter() : { lat: 52.5, lng: -1.9 };
+    var z = map ? Math.min(20, map.getZoom() + 1) : 17;
+    frame.src = 'https://maps.google.com/maps?q=' + c.lat.toFixed(6) + ',' + c.lng.toFixed(6) +
+      '&t=k&z=' + z + '&output=embed';
   }
 
   /* ================= Log ================= */
@@ -1492,8 +1516,22 @@
     });
     $('btn-google-maps').addEventListener('click', function () {
       var c = map ? map.getCenter() : { lat: 52.5, lng: -1.9 };
-      window.open(googleMapsUrl(c.lat, c.lng), '_blank', 'noopener');
+      openExternal(googleMapsUrl(c.lat, c.lng));
     });
+    $('btn-gpreview').addEventListener('click', function () {
+      var wrap = $('gpreview-wrap');
+      var showing = !wrap.classList.contains('hidden');
+      if (showing) {
+        wrap.classList.add('hidden');
+        $('gpreview').src = 'about:blank';
+        this.textContent = 'Show';
+      } else {
+        wrap.classList.remove('hidden');
+        syncGooglePreview();
+        this.textContent = 'Hide';
+      }
+    });
+    $('btn-gpreview-sync').addEventListener('click', syncGooglePreview);
     $('btn-coord-add').addEventListener('click', function () {
       var parsed = parseLatLng($('coord-input').value);
       if (!parsed) {

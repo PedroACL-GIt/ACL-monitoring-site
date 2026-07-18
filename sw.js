@@ -1,6 +1,6 @@
 /* Offline-first service worker: caches the app shell and CDN libraries.
    Map tiles, geocoding and weather stay network-only. */
-var CACHE = 'acl-nms-v12';
+var CACHE = 'acl-nms-v13';
 var SHELL = [
   './',
   './index.html',
@@ -56,8 +56,9 @@ self.addEventListener('activate', function (e) {
 self.addEventListener('fetch', function (e) {
   var url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;
-  // never cache tiles / geocoder / weather — always live
-  if (/tile\.openstreetmap|arcgisonline|nominatim|open-meteo/.test(url.host)) return;
+  // only handle our own files — tiles, geocoding, weather and the
+  // embedded Google preview always go straight to the network
+  if (url.origin !== location.origin) return;
 
   e.respondWith(
     caches.match(e.request, { ignoreSearch: true }).then(function (hit) {
