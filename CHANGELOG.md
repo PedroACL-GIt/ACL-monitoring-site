@@ -5,7 +5,7 @@ can be restored with `git checkout <commit>` (or by asking Claude to roll
 back to it). The same history is shown in-app under **Settings → Version**.
 Keep `js/version.js` in step with this file.
 
-## v1.8.0 — 2026-07-18
+## v1.8.0 — commit `017c263` — 2026-07-18
 - Site plan can now be zoomed (pinch or +/− buttons, up to 6x) and panned by
   dragging
 - Positions are only added on a deliberate tap — dragging or pinching never
