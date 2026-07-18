@@ -790,8 +790,31 @@
 
   var layoutState = {
     pdfDoc: null, img: null, page: 1, numPages: 1,
-    tool: 'position', color: '#e11d48', drawing: false, current: null
+    tool: 'position', color: '#e11d48', drawing: false, current: null,
+    zoom: 1
   };
+
+  /** Zoom the layout view (1 = fit width, up to 6x), keeping the anchor
+      point (e.g. pinch midpoint) fixed on screen. */
+  function applyLayoutZoom(z, anchorClientX, anchorClientY) {
+    var wrap = $('layout-canvas-wrap');
+    var base = $('layout-canvas-base');
+    var draw = $('layout-canvas-draw');
+    z = Math.min(6, Math.max(1, z));
+    var rect = wrap.getBoundingClientRect();
+    var ax = anchorClientX != null ? anchorClientX - rect.left : wrap.clientWidth / 2;
+    var ay = anchorClientY != null ? anchorClientY - rect.top : wrap.clientHeight / 2;
+    var prev = layoutState.zoom;
+    var contentX = (wrap.scrollLeft + ax) / prev;
+    var contentY = (wrap.scrollTop + ay) / prev;
+    layoutState.zoom = z;
+    base.style.width = (z * 100) + '%';
+    draw.style.width = (z * 100) + '%';
+    wrap.scrollLeft = contentX * z - ax;
+    wrap.scrollTop = contentY * z - ay;
+    var lbl = $('zoom-label');
+    if (lbl) lbl.textContent = Math.round(z * 100) + '%';
+  }
 
   function resetLayoutUI() {
     layoutState.pdfDoc = null; layoutState.img = null; layoutState.page = 1; layoutState.numPages = 1;
@@ -801,6 +824,7 @@
 
   function loadLayoutFile(file) {
     var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    layoutState.zoom = 1;
     var blobId = 'layout_' + sheet.id;
     Store.putBlob(blobId, file).then(function () {
       sheet.layout = { blobId: blobId, isPdf: isPdf, name: file.name, pages: {} };
@@ -881,6 +905,7 @@
     return done.then(function () {
       draw.width = base.width;
       draw.height = base.height;
+      applyLayoutZoom(layoutState.zoom);
       redrawMarkup();
     });
   }
@@ -907,7 +932,7 @@
     sheet.locations.forEach(function (loc, i) {
       if (!loc.plan || loc.plan.page !== pageNo) return;
       var x = loc.plan.x * W, y = loc.plan.y * Hh;
-      var r = Math.max(13, W * 0.016);
+      var r = Math.max(18, W * 0.028);
       ctx.save();
       ctx.beginPath();
       ctx.arc(x, y, r, 0, 2 * Math.PI);
@@ -922,7 +947,7 @@
       ctx.textBaseline = 'middle';
       ctx.fillText(String(i + 1), x, y + r * 0.06);
       if (loc.name) {
-        ctx.font = 'bold ' + Math.round(r * 0.8) + 'px -apple-system, Helvetica, Arial';
+        ctx.font = 'bold ' + Math.round(r * 0.72) + 'px -apple-system, Helvetica, Arial';
         ctx.textAlign = 'left';
         ctx.lineWidth = Math.max(3, r * 0.28);
         ctx.strokeStyle = 'rgba(255,255,255,0.9)';
@@ -973,10 +998,36 @@
 
   function bindMarkupCanvas() {
     var draw = $('layout-canvas-draw');
+    var wrap = $('layout-canvas-wrap');
 
-    function start(e) {
-      if (!sheet.layout.blobId) return;
-      var pt = canvasPoint(e);
+    // Gesture model:
+    //  - two fingers anywhere: pinch to zoom / pan (never adds anything)
+    //  - 📍 or 🅰 tool: a clean TAP places; dragging one finger PANS the plan
+    //  - pen/highlighter: one finger draws; a second finger cancels the stroke
+    var pointers = new Map();
+    var pinch = null;   // {startDist, startZoom, midX, midY}
+    var tap = null;     // {startX, startY, moved, scrollL, scrollT}
+    var TAP_SLOP = 10;  // px of movement before a tap becomes a pan
+
+    function pointerXY(e) { return { x: e.clientX, y: e.clientY }; }
+    function pinchDist(pts) {
+      var dx = pts[0].x - pts[1].x, dy = pts[0].y - pts[1].y;
+      return Math.sqrt(dx * dx + dy * dy) || 1;
+    }
+    function pinchMid(pts) {
+      return { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+    }
+
+    function cancelStroke() {
+      if (layoutState.drawing) {
+        layoutState.drawing = false;
+        layoutState.current = null;
+        redrawMarkup();
+      }
+      tap = null;
+    }
+
+    function placeAt(pt) {
       if (layoutState.tool === 'position') {
         var loc = {
           id: uid(),
@@ -990,42 +1041,102 @@
         redrawMarkup();
         persist();
         toast('Added ' + loc.name + ' — name it below, link it to log entries');
-        return;
-      }
-      if (layoutState.tool === 'text') {
+      } else if (layoutState.tool === 'text') {
         var txt = prompt('Label text (e.g. "P1 — meter position"):');
         if (txt && txt.trim()) {
           pageShapes().push({ type: 'text', text: txt.trim(), x: pt[0], y: pt[1], color: layoutState.color });
           redrawMarkup();
           persist();
         }
-        return;
       }
-      e.preventDefault();
-      layoutState.drawing = true;
-      layoutState.current = { type: layoutState.tool, color: layoutState.color, pts: [pt] };
-    }
-    function move(e) {
-      if (!layoutState.drawing) return;
-      e.preventDefault();
-      layoutState.current.pts.push(canvasPoint(e));
-      redrawMarkup();
-      drawShape(draw.getContext('2d'), layoutState.current, draw.width, draw.height);
-    }
-    function end() {
-      if (!layoutState.drawing) return;
-      layoutState.drawing = false;
-      if (layoutState.current.pts.length > 1) {
-        pageShapes().push(layoutState.current);
-        persist();
-      }
-      layoutState.current = null;
-      redrawMarkup();
     }
 
-    draw.addEventListener('pointerdown', start);
-    draw.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', end);
+    function down(e) {
+      if (!sheet || !sheet.layout.blobId) return;
+      pointers.set(e.pointerId, pointerXY(e));
+      if (pointers.size === 2) {
+        // second finger: switch to pinch, abandon tap/stroke
+        cancelStroke();
+        var pts = Array.from(pointers.values());
+        var mid = pinchMid(pts);
+        pinch = { startDist: pinchDist(pts), startZoom: layoutState.zoom, midX: mid.x, midY: mid.y };
+        e.preventDefault();
+        return;
+      }
+      if (pointers.size > 2) return;
+      e.preventDefault();
+      if (layoutState.tool === 'position' || layoutState.tool === 'text') {
+        tap = { startX: e.clientX, startY: e.clientY, moved: false, scrollL: wrap.scrollLeft, scrollT: wrap.scrollTop };
+        return;
+      }
+      layoutState.drawing = true;
+      layoutState.current = { type: layoutState.tool, color: layoutState.color, pts: [canvasPoint(e)] };
+    }
+
+    function move(e) {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, pointerXY(e));
+      if (pinch && pointers.size >= 2) {
+        e.preventDefault();
+        var pts = Array.from(pointers.values());
+        var mid = pinchMid(pts);
+        applyLayoutZoom(pinch.startZoom * pinchDist(pts) / pinch.startDist, mid.x, mid.y);
+        // two-finger pan: follow the midpoint
+        wrap.scrollLeft -= mid.x - pinch.midX;
+        wrap.scrollTop -= mid.y - pinch.midY;
+        pinch.midX = mid.x;
+        pinch.midY = mid.y;
+        return;
+      }
+      if (tap) {
+        e.preventDefault();
+        var dx = e.clientX - tap.startX, dy = e.clientY - tap.startY;
+        if (Math.abs(dx) > TAP_SLOP || Math.abs(dy) > TAP_SLOP) tap.moved = true;
+        if (tap.moved) { // one-finger pan with the place tools
+          wrap.scrollLeft = tap.scrollL - dx;
+          wrap.scrollTop = tap.scrollT - dy;
+        }
+        return;
+      }
+      if (layoutState.drawing) {
+        e.preventDefault();
+        layoutState.current.pts.push(canvasPoint(e));
+        redrawMarkup();
+        drawShape(draw.getContext('2d'), layoutState.current, draw.width, draw.height);
+      }
+    }
+
+    function up(e) {
+      var had = pointers.delete(e.pointerId);
+      if (pinch && pointers.size < 2) pinch = null;
+      if (tap && had && pointers.size === 0) {
+        if (!tap.moved) placeAt(canvasPoint(e));
+        tap = null;
+        return;
+      }
+      if (layoutState.drawing && pointers.size === 0) {
+        layoutState.drawing = false;
+        if (layoutState.current && layoutState.current.pts.length > 1) {
+          pageShapes().push(layoutState.current);
+          persist();
+        }
+        layoutState.current = null;
+        redrawMarkup();
+      }
+    }
+
+    draw.addEventListener('pointerdown', down);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+
+    $('btn-zoom-in').addEventListener('click', function () { applyLayoutZoom(layoutState.zoom * 1.4); });
+    $('btn-zoom-out').addEventListener('click', function () { applyLayoutZoom(layoutState.zoom / 1.4); });
+    $('btn-zoom-fit').addEventListener('click', function () {
+      applyLayoutZoom(1);
+      wrap.scrollLeft = 0;
+      wrap.scrollTop = 0;
+    });
   }
 
   /** Composite base + markup of every page/image into JPEG data URLs (for exports). */

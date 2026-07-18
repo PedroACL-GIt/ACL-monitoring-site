@@ -6,8 +6,17 @@
   'use strict';
 
   global.APP = {
-    version: '1.7.1',
+    version: '1.8.0',
     changelog: [
+      {
+        version: '1.8.0',
+        date: '2026-07-18',
+        notes: [
+          'Site plan can now be zoomed (pinch or +/− buttons, up to 6x) and panned by dragging',
+          'Positions are only added on a deliberate tap — dragging or pinching never places one',
+          'Position markers and numbering on the plan are much bigger, in-app and on exports'
+        ]
+      },
       {
         version: '1.7.1',
         date: '2026-07-18',
