@@ -6,8 +6,15 @@
   'use strict';
 
   global.APP = {
-    version: '1.7.0',
+    version: '1.7.1',
     changelog: [
+      {
+        version: '1.7.1',
+        date: '2026-07-18',
+        notes: [
+          'Updates now apply on the first launch — the app refreshes itself when a new version downloads (previously it took two opens)'
+        ]
+      },
       {
         version: '1.7.0',
         date: '2026-07-18',

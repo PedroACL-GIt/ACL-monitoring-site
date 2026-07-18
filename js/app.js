@@ -1475,7 +1475,18 @@
     updateThemeLabel();
     updateOperativeLabel();
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(function () { /* offline shell optional */ });
+      var hadController = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.register('sw.js')
+        .then(function (reg) { if (reg.update) reg.update().catch(function () {}); })
+        .catch(function () { /* offline shell optional */ });
+      // when a new version of the app takes over, reload once so the
+      // user sees it immediately instead of on the next launch
+      var refreshed = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (refreshed || !hadController) return;
+        refreshed = true;
+        location.reload();
+      });
     }
   }
 
