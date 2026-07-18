@@ -5,7 +5,7 @@ can be restored with `git checkout <commit>` (or by asking Claude to roll
 back to it). The same history is shown in-app under **Settings → Version**.
 Keep `js/version.js` in step with this file.
 
-## v1.9.1 — 2026-07-18
+## v1.9.1 — commit `fa2c364` — 2026-07-18
 - Fixed the G button not opening from the home-screen app (iOS blocks
   window.open in standalone mode)
 - Google Satellite Preview panel on the Map tab — live Google imagery of the
