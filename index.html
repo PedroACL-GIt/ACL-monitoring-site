@@ -36,8 +36,6 @@
           <img class="brand-lockup" src="icons/acl-lockup.png" alt="Acoustic Consultants Ltd">
           <p class="subtitle">Noise monitoring · site sheets &amp; survey logs</p>
         </div>
-        <button class="header-btn header-btn-right" id="btn-equipment">⚙ Equipment</button>
-        <button class="header-btn" id="btn-theme" title="Light / dark mode">🌗</button>
       </div>
     </header>
     <main class="home-main">
@@ -51,6 +49,44 @@
         <p>No monitoring sheets yet.</p>
         <p class="muted">Tap <strong>New Monitoring Sheet</strong> to start a survey.</p>
       </div>
+
+      <h2 class="section-title">Settings</h2>
+      <div class="card settings-card">
+        <button class="settings-row" id="btn-equipment">
+          <span class="settings-icon">⚙</span>
+          <span class="settings-label">Equipment</span>
+          <span class="settings-value">Meters &amp; vibration kits ›</span>
+        </button>
+        <button class="settings-row" id="btn-theme">
+          <span class="settings-icon">🌗</span>
+          <span class="settings-label">Appearance</span>
+          <span class="settings-value" id="theme-value">Automatic</span>
+        </button>
+        <button class="settings-row" id="btn-about">
+          <span class="settings-icon">ℹ️</span>
+          <span class="settings-label">Version</span>
+          <span class="settings-value" id="app-version">—</span>
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ ABOUT / CHANGELOG SCREEN ============ -->
+  <div id="screen-about" class="screen">
+    <header class="app-header sheet-header">
+      <div class="app-header-inner">
+        <button class="header-btn" id="btn-about-back">‹ Back</button>
+        <div class="header-title">Version History</div>
+        <span class="header-spacer"></span>
+      </div>
+    </header>
+    <main class="home-main">
+      <div class="card center">
+        <img src="icons/logo-rounded-512.png" alt="" style="width:72px;height:72px;border-radius:16px;margin-bottom:8px">
+        <h3 class="card-title" style="margin-bottom:2px">ACL Noise Monitoring</h3>
+        <p class="muted" id="about-version-line">—</p>
+      </div>
+      <div id="changelog-list"></div>
     </main>
   </div>
 
@@ -412,6 +448,7 @@
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="vendor/jspdf/jspdf.umd.min.js"></script>
   <script src="vendor/pdfjs/pdf.min.js"></script>
+  <script src="js/version.js"></script>
   <script src="js/gridref.js"></script>
   <script src="js/db.js"></script>
   <script src="js/export.js"></script>

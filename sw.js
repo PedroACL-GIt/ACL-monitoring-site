@@ -1,10 +1,11 @@
 /* Offline-first service worker: caches the app shell and CDN libraries.
    Map tiles, geocoding and weather stay network-only. */
-var CACHE = 'acl-nms-v7';
+var CACHE = 'acl-nms-v8';
 var SHELL = [
   './',
   './index.html',
   './css/style.css',
+  './js/version.js',
   './js/app.js',
   './js/db.js',
   './js/export.js',

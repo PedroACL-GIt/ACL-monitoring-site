@@ -95,13 +95,41 @@
     else delete document.documentElement.dataset.theme;
   }
 
+  function themeLabel() {
+    var pref = localStorage.getItem(THEME_KEY);
+    return pref === 'dark' ? 'Dark' : pref === 'light' ? 'Light' : 'Automatic';
+  }
+
+  function updateThemeLabel() {
+    var el = $('theme-value');
+    if (el) el.textContent = themeLabel();
+  }
+
   function cycleTheme() {
     var pref = localStorage.getItem(THEME_KEY);
     var next = pref === 'dark' ? 'light' : pref === 'light' ? 'auto' : 'dark';
     if (next === 'auto') localStorage.removeItem(THEME_KEY);
     else localStorage.setItem(THEME_KEY, next);
     applyTheme();
-    toast('Theme: ' + (next === 'auto' ? 'automatic (follows iPhone setting)' : next));
+    updateThemeLabel();
+    toast('Appearance: ' + (next === 'auto' ? 'automatic (follows iPhone setting)' : next));
+  }
+
+  function renderChangelog() {
+    $('about-version-line').textContent = 'Version ' + APP.version;
+    var wrap = $('changelog-list');
+    wrap.innerHTML = '';
+    APP.changelog.forEach(function (rel) {
+      var card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML =
+        '<div class="card-title-row"><h3 class="card-title">v' + esc(rel.version) + '</h3>' +
+        '<span class="muted">' + esc(rel.date) + '</span></div>' +
+        '<ul class="changelog-notes">' +
+        rel.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') +
+        '</ul>';
+      wrap.appendChild(card);
+    });
   }
 
   /* ================= Equipment registry ================= */
@@ -1192,6 +1220,13 @@
     $('btn-equip-back').addEventListener('click', function () {
       showScreen('home');
     });
+    $('btn-about').addEventListener('click', function () {
+      renderChangelog();
+      showScreen('about');
+    });
+    $('btn-about-back').addEventListener('click', function () {
+      showScreen('home');
+    });
     $('btn-add-meter').addEventListener('click', function () {
       equipment.meters.push('');
       saveEquipment();
@@ -1355,6 +1390,8 @@
   function boot() {
     bindEvents();
     renderHome();
+    $('app-version').textContent = 'v' + APP.version;
+    updateThemeLabel();
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(function () { /* offline shell optional */ });
     }

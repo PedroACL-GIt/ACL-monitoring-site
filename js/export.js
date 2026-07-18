@@ -259,7 +259,8 @@
       doc.setPage(i);
       doc.setFontSize(7.5);
       doc.setTextColor(130);
-      doc.text('ACL Noise Monitoring — generated ' + new Date().toLocaleString('en-GB') +
+      doc.text('ACL Noise Monitoring' + (global.APP ? ' v' + global.APP.version : '') +
+        ' — generated ' + new Date().toLocaleString('en-GB') +
         '   ·   Page ' + i + ' of ' + pages, M, PH - 6);
     }
     return doc;
