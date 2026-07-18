@@ -57,7 +57,7 @@
       updatedAt: new Date().toISOString(),
       project: '', jobNo: '', client: '', address: '',
       date: new Date().toISOString().slice(0, 10),
-      operative: '', surveyType: '', description: '',
+      operative: people.defaultName || '', surveyType: '', description: '',
       weather: { cond: '', temp: '', wind: '', windDir: '', notes: '' },
       noise: { sources: '', residual: '' },
       equipment: { meter: '', vibKit: '', calStart: '', calEnd: '', notes: '' },
@@ -153,15 +153,76 @@
 
   function saveEquipment() {
     localStorage.setItem(EQUIP_KEY, JSON.stringify(equipment));
-    populateEquipSelects();
+    populateRegistrySelects();
   }
 
-  function populateEquipSelects() {
-    fillSelect($('f-meter'), 'Select…', equipment.meters, sheet && sheet.equipment.meter);
-    fillSelect($('f-vibkit'), 'None', equipment.vibKits, sheet && sheet.equipment.vibKit);
+  /* People (operatives) registry — one can be marked as the default,
+     which pre-fills the Site Operative picker on every new sheet. */
+
+  var PEOPLE_KEY = 'acl_nms_people_v1';
+
+  function loadPeople() {
+    try {
+      var p = JSON.parse(localStorage.getItem(PEOPLE_KEY));
+      if (p && Array.isArray(p.names)) return p;
+    } catch (err) { /* fall through */ }
+    return { names: [], defaultName: '' };
   }
 
-  function fillSelect(sel, blankLabel, items, currentValue) {
+  var people = loadPeople();
+
+  function savePeople() {
+    localStorage.setItem(PEOPLE_KEY, JSON.stringify(people));
+    populateRegistrySelects();
+    updateOperativeLabel();
+  }
+
+  function updateOperativeLabel() {
+    var el = $('operative-default-label');
+    if (el) el.textContent = (people.defaultName || 'None set') + ' ›';
+  }
+
+  function renderOperativesScreen() {
+    var wrap = $('operative-list');
+    wrap.innerHTML = '';
+    people.names.forEach(function (name, i) {
+      var el = document.createElement('div');
+      el.className = 'equip-item';
+      el.innerHTML =
+        '<input type="radio" class="op-radio" name="op-default" title="Pre-fill new sheets with this name"' +
+        (name && people.defaultName === name ? ' checked' : '') + '>' +
+        '<input class="op-name" value="' + esc(name) + '" placeholder="Full name">' +
+        '<button class="equip-del" title="Remove">✕</button>';
+      el.querySelector('.op-radio').addEventListener('change', function () {
+        people.defaultName = people.names[i];
+        savePeople();
+        toast((people.defaultName || 'This name') + ' will be pre-filled on new sheets');
+      });
+      el.querySelector('.op-name').addEventListener('input', function (e) {
+        var wasDefault = people.defaultName && people.defaultName === people.names[i];
+        people.names[i] = e.target.value;
+        if (wasDefault) people.defaultName = e.target.value;
+        savePeople();
+      });
+      el.querySelector('.equip-del').addEventListener('click', function () {
+        if (!confirm('Remove "' + (people.names[i] || 'this name') + '"? Existing sheets keep their saved operative.')) return;
+        if (people.defaultName === people.names[i]) people.defaultName = '';
+        people.names.splice(i, 1);
+        savePeople();
+        renderOperativesScreen();
+      });
+      wrap.appendChild(el);
+    });
+    $('operative-empty').classList.toggle('hidden', people.names.length > 0);
+  }
+
+  function populateRegistrySelects() {
+    fillSelect($('f-meter'), 'Select…', equipment.meters, sheet && sheet.equipment.meter, true);
+    fillSelect($('f-vibkit'), 'None', equipment.vibKits, sheet && sheet.equipment.vibKit, true);
+    fillSelect($('f-operative'), '—', people.names, sheet && sheet.operative, false);
+  }
+
+  function fillSelect(sel, blankLabel, items, currentValue, includeOther) {
     if (!sel) return;
     sel.innerHTML = '';
     var o0 = document.createElement('option');
@@ -175,10 +236,12 @@
       o.textContent = name;
       sel.appendChild(o);
     });
-    var other = document.createElement('option');
-    other.value = 'Other (see notes)';
-    other.textContent = 'Other (see notes)';
-    sel.appendChild(other);
+    if (includeOther) {
+      var other = document.createElement('option');
+      other.value = 'Other (see notes)';
+      other.textContent = 'Other (see notes)';
+      sel.appendChild(other);
+    }
     // keep a value saved on the sheet selectable even if removed from the registry
     if (currentValue && !Array.prototype.some.call(sel.options, function (o) { return o.value === currentValue; })) {
       var keep = document.createElement('option');
@@ -311,7 +374,7 @@
   ];
 
   function writeDetailsForm() {
-    populateEquipSelects();
+    populateRegistrySelects();
     fieldMap.forEach(function (f) {
       var el = $(f[0]);
       if (el) el.value = f[1](sheet) || '';
@@ -1212,20 +1275,38 @@
       openSheet(s.id);
     });
 
+    $('btn-settings').addEventListener('click', function () {
+      updateThemeLabel();
+      updateOperativeLabel();
+      showScreen('settings');
+    });
+    $('btn-settings-back').addEventListener('click', function () { showScreen('home'); });
     $('btn-theme').addEventListener('click', cycleTheme);
+    $('btn-operatives').addEventListener('click', function () {
+      renderOperativesScreen();
+      showScreen('operatives');
+    });
+    $('btn-operatives-back').addEventListener('click', function () { showScreen('settings'); });
+    $('btn-add-operative').addEventListener('click', function () {
+      people.names.push('');
+      savePeople();
+      renderOperativesScreen();
+      var inputs = document.querySelectorAll('#operative-list .op-name');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    });
     $('btn-equipment').addEventListener('click', function () {
       renderEquipScreen();
       showScreen('equipment');
     });
     $('btn-equip-back').addEventListener('click', function () {
-      showScreen('home');
+      showScreen('settings');
     });
     $('btn-about').addEventListener('click', function () {
       renderChangelog();
       showScreen('about');
     });
     $('btn-about-back').addEventListener('click', function () {
-      showScreen('home');
+      showScreen('settings');
     });
     $('btn-add-meter').addEventListener('click', function () {
       equipment.meters.push('');
@@ -1392,6 +1473,7 @@
     renderHome();
     $('app-version').textContent = 'v' + APP.version;
     updateThemeLabel();
+    updateOperativeLabel();
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(function () { /* offline shell optional */ });
     }

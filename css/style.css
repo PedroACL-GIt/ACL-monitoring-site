@@ -607,6 +607,23 @@ html, body {
   box-shadow: 0 0 0 3px rgba(143, 28, 19, 0.12);
 }
 .equip-del { background: none; border: none; color: var(--red); font-size: 1rem; cursor: pointer; padding: 4px 6px; }
+.op-radio { width: 22px; height: 22px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+.op-name {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 16px;
+  font-family: inherit;
+  background: var(--field-bg);
+  color: var(--text);
+}
+.op-name:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(143, 28, 19, 0.12);
+}
+.home-settings { margin-top: 22px; }
 
 /* numbered position badge in location lists */
 .pos-badge {

@@ -6,8 +6,18 @@
   'use strict';
 
   global.APP = {
-    version: '1.6.0',
+    version: '1.7.0',
     changelog: [
+      {
+        version: '1.7.0',
+        date: '2026-07-18',
+        notes: [
+          'Dedicated Settings screen (opened from a single row on the home screen)',
+          'Operatives list in Settings — mark yourself as default and every new sheet pre-fills your name',
+          'Site Operative is now a dropdown fed from the operatives list',
+          'Equipment row given a level-slider icon'
+        ]
+      },
       {
         version: '1.6.0',
         date: '2026-07-18',

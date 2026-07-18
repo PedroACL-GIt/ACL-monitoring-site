@@ -50,10 +50,34 @@
         <p class="muted">Tap <strong>New Monitoring Sheet</strong> to start a survey.</p>
       </div>
 
-      <h2 class="section-title">Settings</h2>
+      <div class="card settings-card home-settings">
+        <button class="settings-row" id="btn-settings">
+          <span class="settings-icon">⚙️</span>
+          <span class="settings-label">Settings</span>
+          <span class="settings-value">Operatives, equipment, appearance ›</span>
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ SETTINGS SCREEN ============ -->
+  <div id="screen-settings" class="screen">
+    <header class="app-header sheet-header">
+      <div class="app-header-inner">
+        <button class="header-btn" id="btn-settings-back">‹ Back</button>
+        <div class="header-title">Settings</div>
+        <span class="header-spacer"></span>
+      </div>
+    </header>
+    <main class="home-main">
       <div class="card settings-card">
+        <button class="settings-row" id="btn-operatives">
+          <span class="settings-icon">👤</span>
+          <span class="settings-label">Operatives</span>
+          <span class="settings-value" id="operative-default-label">None set ›</span>
+        </button>
         <button class="settings-row" id="btn-equipment">
-          <span class="settings-icon">⚙</span>
+          <span class="settings-icon">🎚️</span>
           <span class="settings-label">Equipment</span>
           <span class="settings-value">Meters &amp; vibration kits ›</span>
         </button>
@@ -67,6 +91,28 @@
           <span class="settings-label">Version</span>
           <span class="settings-value" id="app-version">—</span>
         </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ OPERATIVES SCREEN ============ -->
+  <div id="screen-operatives" class="screen">
+    <header class="app-header sheet-header">
+      <div class="app-header-inner">
+        <button class="header-btn" id="btn-operatives-back">‹ Settings</button>
+        <div class="header-title">Operatives</div>
+        <span class="header-spacer"></span>
+      </div>
+    </header>
+    <main class="home-main">
+      <p class="hint">These names fill the Operative picker on every sheet. Select who you are — that name is pre-filled automatically on each new survey.</p>
+      <div class="card">
+        <div class="card-title-row">
+          <h3 class="card-title">People</h3>
+          <button class="btn btn-small" id="btn-add-operative">＋ Add</button>
+        </div>
+        <div id="operative-list" class="equip-list"></div>
+        <p class="muted" id="operative-empty">No names yet — tap ＋ Add and enter your name, then tick it as default.</p>
       </div>
     </main>
   </div>
@@ -152,8 +198,8 @@
             </div>
           </div>
           <div class="field">
-            <label>Operative / Engineer</label>
-            <input type="text" id="f-operative" placeholder="Name of operative">
+            <label>Site Operative</label>
+            <select id="f-operative"></select>
           </div>
           <div class="field">
             <label>Client</label>
@@ -248,7 +294,7 @@
             <label>Vibration Kit</label>
             <select id="f-vibkit"></select>
           </div>
-          <p class="hint">Manage these lists under ⚙ Equipment on the home screen.</p>
+          <p class="hint">Manage kit and operative names under Settings on the home screen.</p>
           <div class="field-row">
             <div class="field">
               <label>Calibration Check — Start (dB)</label>
