@@ -5,8 +5,12 @@
   /* ================= State ================= */
 
   var sheets = Store.loadSheets();
+  // migrate sheets created before the noise-climate fields existed
+  sheets.forEach(function (s) { if (!s.noise) s.noise = { sources: '', residual: '' }; });
   var sheet = null;          // currently open sheet object (reference into sheets[])
   var pendingPhotos = [];    // photo ids staged in the composer
+  var editingEntryId = null;         // entry currently loaded in the composer for editing
+  var editingOriginalPhotos = [];    // its photo ids at edit start (for orphan cleanup)
   var saveTimer = null;
   var durationTimer = null;
 
@@ -55,9 +59,10 @@
       date: new Date().toISOString().slice(0, 10),
       operative: '', surveyType: '', description: '',
       weather: { cond: '', temp: '', wind: '', windDir: '', notes: '' },
+      noise: { sources: '', residual: '' },
       equipment: { meter: '', vibKit: '', calStart: '', calEnd: '', notes: '' },
       times: { start: '', finish: '' },
-      locations: [],   // {id, name, lat, lng, gridRef, params}
+      locations: [],   // {id, name, params, lat?, lng?, gridRef?, plan?: {page,x,y}}
       entries: [],     // {id, ts, text, meterFile, locationId, photoIds[]}
       layout: { blobId: null, isPdf: false, name: '', pages: {} } // pages[n] = [shape,...]
     };
@@ -130,6 +135,11 @@
     sheet = sheets.find(function (s) { return s.id === id; });
     if (!sheet) return;
     pendingPhotos = [];
+    editingEntryId = null;
+    editingOriginalPhotos = [];
+    $('composer-title').textContent = 'Add Log Entry';
+    $('btn-add-entry').textContent = '＋ Add entry';
+    $('btn-cancel-edit').classList.add('hidden');
     writeDetailsForm();
     renderLocationList();
     renderEntries();
@@ -159,6 +169,8 @@
     ['f-wx-wind', function (s) { return s.weather.wind; }, function (s, v) { s.weather.wind = v; }],
     ['f-wx-winddir', function (s) { return s.weather.windDir; }, function (s, v) { s.weather.windDir = v; }],
     ['f-wx-notes', function (s) { return s.weather.notes; }, function (s, v) { s.weather.notes = v; }],
+    ['f-noise-sources', function (s) { return s.noise.sources; }, function (s, v) { s.noise.sources = v; }],
+    ['f-noise-residual', function (s) { return s.noise.residual; }, function (s, v) { s.noise.residual = v; }],
     ['f-meter', function (s) { return s.equipment.meter; }, function (s, v) { s.equipment.meter = v; }],
     ['f-vibkit', function (s) { return s.equipment.vibKit; }, function (s, v) { s.equipment.vibKit = v; }],
     ['f-cal-start', function (s) { return s.equipment.calStart; }, function (s, v) { s.equipment.calStart = v; }],
@@ -249,10 +261,10 @@
     }
     setTimeout(function () { map.invalidateSize(); }, 60);
     drawMarkers();
-    if (sheet.locations.length) {
-      var pts = sheet.locations.map(function (l) { return [l.lat, l.lng]; });
-      map.fitBounds(L.latLngBounds(pts).pad(0.3));
-    }
+    var pts = sheet.locations
+      .filter(function (l) { return l.lat != null && l.lng != null; })
+      .map(function (l) { return [l.lat, l.lng]; });
+    if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.3));
   }
 
   function popupHtml(loc) {
@@ -267,6 +279,7 @@
     if (!markerLayer) return;
     markerLayer.clearLayers();
     sheet.locations.forEach(function (loc, i) {
+      if (loc.lat == null || loc.lng == null) return; // plan-only position
       var m = L.marker([loc.lat, loc.lng], { draggable: true }).addTo(markerLayer);
       m.bindPopup(popupHtml(loc));
       m.on('dragend', function () {
@@ -296,25 +309,29 @@
     toast('Added ' + loc.name + (loc.gridRef ? ' — ' + loc.gridRef : ''));
   }
 
-  function renderLocationList() {
-    var wrap = $('location-list');
+  function locationCoordsText(loc) {
+    var bits = [];
+    if (loc.gridRef) bits.push('OS ' + loc.gridRef);
+    if (loc.lat != null && loc.lng != null) bits.push(loc.lat.toFixed(5) + ', ' + loc.lng.toFixed(5));
+    if (loc.plan) bits.push('Site plan — page ' + loc.plan.page);
+    return bits.join(' · ') || 'No position set';
+  }
+
+  function renderLocationListInto(wrap) {
     wrap.innerHTML = '';
-    sheet.locations.forEach(function (loc) {
+    sheet.locations.forEach(function (loc, idx) {
       var el = document.createElement('div');
       el.className = 'location-item';
       el.innerHTML =
-        '<div class="location-pin">📍</div>' +
+        '<div class="location-pin"><span class="pos-badge">' + (idx + 1) + '</span></div>' +
         '<div class="location-body">' +
           '<input class="location-name" value="' + esc(loc.name) + '" placeholder="Position name">' +
-          '<div class="location-coords">' +
-            (loc.gridRef ? 'OS ' + esc(loc.gridRef) + ' · ' : '') +
-            loc.lat.toFixed(5) + ', ' + loc.lng.toFixed(5) +
-          '</div>' +
+          '<div class="location-coords">' + esc(locationCoordsText(loc)) + '</div>' +
           '<textarea class="location-params" rows="1" placeholder="Parameters… e.g. façade 1 m, tripod 1.5 m, LAeq 15-min">' + esc(loc.params) + '</textarea>' +
         '</div>' +
         '<button class="location-del">✕</button>';
       el.querySelector('.location-name').addEventListener('input', function (e) {
-        loc.name = e.target.value; updateLocationSelect(); drawMarkers(); scheduleSave();
+        loc.name = e.target.value; updateLocationSelect(); drawMarkers(); redrawMarkup(); scheduleSave();
       });
       el.querySelector('.location-params').addEventListener('input', function (e) {
         loc.params = e.target.value; scheduleSave();
@@ -322,11 +339,20 @@
       el.querySelector('.location-del').addEventListener('click', function () {
         if (!confirm('Remove ' + loc.name + '?')) return;
         sheet.locations = sheet.locations.filter(function (l) { return l.id !== loc.id; });
-        drawMarkers(); renderLocationList(); updateLocationSelect(); persist();
+        drawMarkers(); renderLocationList(); updateLocationSelect(); redrawMarkup(); persist();
       });
       wrap.appendChild(el);
     });
-    $('location-empty').classList.toggle('hidden', sheet.locations.length > 0);
+  }
+
+  function renderLocationList() {
+    renderLocationListInto($('location-list'));
+    var lw = $('layout-location-list');
+    if (lw) renderLocationListInto(lw);
+    var has = sheet.locations.length > 0;
+    $('location-empty').classList.toggle('hidden', has);
+    var le = $('layout-location-empty');
+    if (le) le.classList.toggle('hidden', has);
   }
 
   function mapSearch() {
@@ -412,7 +438,8 @@
     pendingPhotos.forEach(function (id) {
       appendThumb(strip, id, function () {
         pendingPhotos = pendingPhotos.filter(function (p) { return p !== id; });
-        Store.deleteBlob(id);
+        // keep the blob if it belongs to the entry being edited (cleanup happens on save)
+        if (editingOriginalPhotos.indexOf(id) === -1) Store.deleteBlob(id);
         renderComposerPreviews();
       });
     });
@@ -429,6 +456,8 @@
     img.addEventListener('click', function () {
       Store.getBlob(photoId).then(function (blob) {
         if (!blob) return;
+        currentPhotoId = photoId;
+        closePhotoEditor();
         $('photo-modal-img').src = URL.createObjectURL(blob);
         $('photo-modal').classList.remove('hidden');
       });
@@ -445,6 +474,25 @@
   function addEntry() {
     var text = $('e-text').value.trim();
     if (!text && !pendingPhotos.length) { toast('Type a note or attach a photo first'); return; }
+
+    if (editingEntryId) {
+      var en = sheet.entries.find(function (x) { return x.id === editingEntryId; });
+      if (en) {
+        en.text = text;
+        en.meterFile = $('e-file').value.trim();
+        en.locationId = $('e-location').value;
+        var newIds = pendingPhotos.slice();
+        // delete blobs of photos removed from the entry
+        en.photoIds.forEach(function (p) { if (newIds.indexOf(p) === -1) Store.deleteBlob(p); });
+        en.photoIds = newIds;
+      }
+      exitEditMode(false);
+      renderEntries();
+      persist();
+      toast('Entry updated');
+      return;
+    }
+
     var entry = {
       id: uid(),
       ts: new Date().toISOString(),
@@ -461,6 +509,23 @@
     renderEntries();
     persist();
     toast('Entry logged at ' + fmtTime(entry.ts));
+  }
+
+  function exitEditMode(discardNewPhotos) {
+    if (discardNewPhotos) {
+      // remove blobs added during an abandoned edit
+      pendingPhotos.forEach(function (p) {
+        if (editingOriginalPhotos.indexOf(p) === -1) Store.deleteBlob(p);
+      });
+    }
+    editingEntryId = null;
+    editingOriginalPhotos = [];
+    pendingPhotos = [];
+    $('e-text').value = '';
+    renderComposerPreviews();
+    $('composer-title').textContent = 'Add Log Entry';
+    $('btn-add-entry').textContent = '＋ Add entry';
+    $('btn-cancel-edit').classList.add('hidden');
   }
 
   function locationName(id) {
@@ -487,6 +552,7 @@
       actions.children[0].addEventListener('click', function () { editEntry(en); });
       actions.children[1].addEventListener('click', function () {
         if (!confirm('Delete this entry?')) return;
+        if (editingEntryId === en.id) exitEditMode(false);
         en.photoIds.forEach(function (p) { Store.deleteBlob(p); });
         sheet.entries = sheet.entries.filter(function (x) { return x.id !== en.id; });
         renderEntries(); persist();
@@ -512,20 +578,25 @@
   }
 
   function editEntry(en) {
-    var t = prompt('Edit note:', en.text);
-    if (t === null) return;
-    en.text = t.trim();
-    var f = prompt('Meter file no. (blank for none):', en.meterFile || '');
-    if (f !== null) en.meterFile = f.trim();
-    renderEntries();
-    persist();
+    if (editingEntryId && editingEntryId !== en.id) exitEditMode(true);
+    editingEntryId = en.id;
+    editingOriginalPhotos = en.photoIds.slice();
+    pendingPhotos = en.photoIds.slice();
+    $('e-text').value = en.text || '';
+    $('e-file').value = en.meterFile || '';
+    $('e-location').value = en.locationId || '';
+    renderComposerPreviews();
+    $('composer-title').textContent = 'Edit Entry — logged ' + fmtTime(en.ts);
+    $('btn-add-entry').textContent = '✓ Save changes';
+    $('btn-cancel-edit').classList.remove('hidden');
+    $('composer-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   /* ================= Layout markup ================= */
 
   var layoutState = {
     pdfDoc: null, img: null, page: 1, numPages: 1,
-    tool: 'pen', color: '#e11d48', drawing: false, current: null
+    tool: 'position', color: '#e11d48', drawing: false, current: null
   };
 
   function resetLayoutUI() {
@@ -627,11 +698,46 @@
   }
 
   function redrawMarkup(ctx2) {
+    if (!sheet || !sheet.layout || !sheet.layout.blobId) return;
     var draw = $('layout-canvas-draw');
+    if (!draw.width) return;
     var ctx = ctx2 || draw.getContext('2d');
     if (!ctx2) ctx.clearRect(0, 0, draw.width, draw.height);
     var W = draw.width, Hh = draw.height;
     pageShapes().forEach(function (sh) { drawShape(ctx, sh, W, Hh); });
+    drawPlanPositions(ctx, W, Hh, layoutState.page);
+  }
+
+  /** Numbered position markers dropped on the plan (like map pins). */
+  function drawPlanPositions(ctx, W, Hh, pageNo) {
+    sheet.locations.forEach(function (loc, i) {
+      if (!loc.plan || loc.plan.page !== pageNo) return;
+      var x = loc.plan.x * W, y = loc.plan.y * Hh;
+      var r = Math.max(13, W * 0.016);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = '#8f1c13';
+      ctx.fill();
+      ctx.lineWidth = Math.max(2, r * 0.16);
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold ' + Math.round(r * 1.05) + 'px -apple-system, Helvetica, Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(i + 1), x, y + r * 0.06);
+      if (loc.name) {
+        ctx.font = 'bold ' + Math.round(r * 0.8) + 'px -apple-system, Helvetica, Arial';
+        ctx.textAlign = 'left';
+        ctx.lineWidth = Math.max(3, r * 0.28);
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.strokeText(loc.name, x + r * 1.35, y);
+        ctx.fillStyle = '#2a1a16';
+        ctx.fillText(loc.name, x + r * 1.35, y);
+      }
+      ctx.restore();
+    });
   }
 
   function drawShape(ctx, sh, W, Hh) {
@@ -677,6 +783,21 @@
     function start(e) {
       if (!sheet.layout.blobId) return;
       var pt = canvasPoint(e);
+      if (layoutState.tool === 'position') {
+        var loc = {
+          id: uid(),
+          name: 'Position ' + (sheet.locations.length + 1),
+          params: '',
+          plan: { page: layoutState.page, x: pt[0], y: pt[1] }
+        };
+        sheet.locations.push(loc);
+        renderLocationList();
+        updateLocationSelect();
+        redrawMarkup();
+        persist();
+        toast('Added ' + loc.name + ' — name it below, link it to log entries');
+        return;
+      }
       if (layoutState.tool === 'text') {
         var txt = prompt('Label text (e.g. "P1 — meter position"):');
         if (txt && txt.trim()) {
@@ -738,6 +859,7 @@
                   ctx.fillRect(0, 0, c.width, c.height);
                   return page.render({ canvasContext: ctx, viewport: vp }).promise.then(function () {
                     (sheet.layout.pages[String(pageNo)] || []).forEach(function (sh) { drawShape(ctx, sh, c.width, c.height); });
+                    drawPlanPositions(ctx, c.width, c.height, pageNo);
                     results.push({ page: pageNo, dataUrl: c.toDataURL('image/jpeg', 0.85), w: c.width, h: c.height });
                   });
                 });
@@ -758,11 +880,132 @@
           var ctx = c.getContext('2d');
           ctx.drawImage(img, 0, 0, c.width, c.height);
           (sheet.layout.pages['1'] || []).forEach(function (sh) { drawShape(ctx, sh, c.width, c.height); });
+          drawPlanPositions(ctx, c.width, c.height, 1);
           resolve([{ page: 1, dataUrl: c.toDataURL('image/jpeg', 0.85), w: c.width, h: c.height }]);
         };
         img.onerror = function () { resolve([]); };
         img.src = URL.createObjectURL(blob);
       });
+    });
+  }
+
+  /* ================= Photo editor ================= */
+
+  var currentPhotoId = null;
+  var photoEdit = { img: null, shapes: [], color: '#e11d48', textMode: false, drawing: false, current: null };
+
+  function openPhotoEditor() {
+    if (!currentPhotoId) return;
+    Store.getBlob(currentPhotoId).then(function (blob) {
+      if (!blob) return;
+      var img = new Image();
+      img.onload = function () {
+        photoEdit.img = img;
+        photoEdit.shapes = [];
+        photoEdit.textMode = false;
+        var c = $('photo-edit-canvas');
+        c.width = img.naturalWidth;
+        c.height = img.naturalHeight;
+        redrawPhotoEditor();
+        $('photo-modal-img').classList.add('hidden');
+        c.classList.remove('hidden');
+        $('photo-edit-bar').classList.remove('hidden');
+        $('btn-photo-edit').classList.add('hidden');
+        $('btn-photo-text').classList.remove('active');
+      };
+      img.src = URL.createObjectURL(blob);
+    });
+  }
+
+  function closePhotoEditor() {
+    photoEdit.img = null;
+    photoEdit.shapes = [];
+    photoEdit.drawing = false;
+    $('photo-edit-canvas').classList.add('hidden');
+    $('photo-edit-bar').classList.add('hidden');
+    $('photo-modal-img').classList.remove('hidden');
+    $('btn-photo-edit').classList.remove('hidden');
+  }
+
+  function redrawPhotoEditor() {
+    var c = $('photo-edit-canvas');
+    var ctx = c.getContext('2d');
+    if (!photoEdit.img) return;
+    ctx.drawImage(photoEdit.img, 0, 0, c.width, c.height);
+    photoEdit.shapes.forEach(function (sh) { drawShape(ctx, sh, c.width, c.height); });
+  }
+
+  function photoCanvasPoint(e) {
+    var c = $('photo-edit-canvas');
+    var r = c.getBoundingClientRect();
+    return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
+  }
+
+  function bindPhotoEditor() {
+    var c = $('photo-edit-canvas');
+
+    c.addEventListener('pointerdown', function (e) {
+      if (!photoEdit.img) return;
+      e.preventDefault();
+      var pt = photoCanvasPoint(e);
+      if (photoEdit.textMode) {
+        var txt = prompt('Note text (e.g. "HGV access point"):');
+        if (txt && txt.trim()) {
+          photoEdit.shapes.push({ type: 'text', text: txt.trim(), x: pt[0], y: pt[1], color: photoEdit.color });
+          redrawPhotoEditor();
+        }
+        photoEdit.textMode = false;
+        $('btn-photo-text').classList.remove('active');
+        return;
+      }
+      photoEdit.drawing = true;
+      photoEdit.current = { type: 'pen', color: photoEdit.color, pts: [pt] };
+    });
+    c.addEventListener('pointermove', function (e) {
+      if (!photoEdit.drawing) return;
+      e.preventDefault();
+      photoEdit.current.pts.push(photoCanvasPoint(e));
+      redrawPhotoEditor();
+      drawShape(c.getContext('2d'), photoEdit.current, c.width, c.height);
+    });
+    window.addEventListener('pointerup', function () {
+      if (!photoEdit.drawing) return;
+      photoEdit.drawing = false;
+      if (photoEdit.current.pts.length > 1) photoEdit.shapes.push(photoEdit.current);
+      photoEdit.current = null;
+      redrawPhotoEditor();
+    });
+
+    $('btn-photo-edit').addEventListener('click', openPhotoEditor);
+    $('btn-photo-text').addEventListener('click', function () {
+      photoEdit.textMode = !photoEdit.textMode;
+      this.classList.toggle('active', photoEdit.textMode);
+      if (photoEdit.textMode) toast('Tap the photo where the note should go');
+    });
+    $('btn-photo-undo').addEventListener('click', function () {
+      photoEdit.shapes.pop();
+      redrawPhotoEditor();
+    });
+    document.querySelectorAll('.pcolor-btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.pcolor-btn').forEach(function (x) { x.classList.remove('active'); });
+        b.classList.add('active');
+        photoEdit.color = b.dataset.color;
+      });
+    });
+    $('btn-photo-save').addEventListener('click', function () {
+      if (!photoEdit.img || !currentPhotoId) return;
+      redrawPhotoEditor();
+      $('photo-edit-canvas').toBlob(function (blob) {
+        if (!blob) { toast('Could not save photo'); return; }
+        Store.putBlob(currentPhotoId, blob).then(function () {
+          closePhotoEditor();
+          $('photo-modal').classList.add('hidden');
+          renderEntries();
+          renderComposerPreviews();
+          toast('Photo saved with notes');
+        });
+      }, 'image/jpeg', 0.85);
     });
   }
 
@@ -909,6 +1152,10 @@
     });
 
     $('btn-add-entry').addEventListener('click', addEntry);
+    $('btn-cancel-edit').addEventListener('click', function () {
+      exitEditMode(true);
+      toast('Edit cancelled');
+    });
 
     // layout
     $('layout-file').addEventListener('change', function (e) {
@@ -963,11 +1210,18 @@
       withAssets(function (s, a) { return Exporter.toExcel(s, a); }, 'Building spreadsheet…');
     });
 
-    // photo modal
-    $('photo-modal-close').addEventListener('click', function () { $('photo-modal').classList.add('hidden'); });
-    $('photo-modal').addEventListener('click', function (e) {
-      if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+    // photo modal / editor
+    $('photo-modal-close').addEventListener('click', function () {
+      closePhotoEditor();
+      $('photo-modal').classList.add('hidden');
     });
+    $('photo-modal').addEventListener('click', function (e) {
+      if (e.target === e.currentTarget) {
+        closePhotoEditor();
+        e.currentTarget.classList.add('hidden');
+      }
+    });
+    bindPhotoEditor();
   }
 
   /* ================= Boot ================= */

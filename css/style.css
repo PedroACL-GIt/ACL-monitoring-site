@@ -479,6 +479,52 @@ html, body {
   cursor: pointer;
 }
 
+/* photo editor */
+.photo-edit-bar {
+  position: absolute;
+  top: calc(14px + var(--safe-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: rgba(24, 10, 7, 0.8);
+  padding: 8px 10px;
+  border-radius: 12px;
+  z-index: 5;
+}
+.photo-edit-bar .tool-btn { background: rgba(255,255,255,0.14); border-color: transparent; color: #fff; }
+.photo-edit-bar .tool-btn.active { background: rgba(255,255,255,0.35); }
+.pcolor-btn {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.pcolor-btn.active { border-color: #ffffff; }
+#photo-edit-canvas { max-width: 94vw; max-height: 76dvh; touch-action: none; border-radius: 10px; }
+#btn-photo-edit {
+  position: absolute;
+  bottom: calc(26px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.94);
+}
+
+/* numbered position badge in location lists */
+.pos-badge {
+  display: inline-flex;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  align-items: center;
+  justify-content: center;
+}
+
 .toast {
   position: fixed;
   bottom: calc(96px + var(--safe-bottom));

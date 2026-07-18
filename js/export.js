@@ -139,6 +139,13 @@
       ['Weather notes', s.weather.notes]
     ]);
 
+    var noise = s.noise || {};
+    heading('NOISE CLIMATE');
+    kvRows([
+      ['Predominant source(s)', noise.sources],
+      ['Residual noise', noise.residual]
+    ]);
+
     heading('EQUIPMENT');
     kvRows([
       ['Noise meter', s.equipment.meter],
@@ -170,14 +177,17 @@
       doc.line(M, y, PW - M, y);
       y += 1.5;
       doc.setFont('helvetica', 'normal');
-      s.locations.forEach(function (l) {
+      s.locations.forEach(function (l, i) {
         var params = doc.splitTextToSize(l.params || '—', PW - M - cols[3] - 2);
-        var name = doc.splitTextToSize(l.name || '—', cols[1] - cols[0] - 3);
+        var name = doc.splitTextToSize((i + 1) + '. ' + (l.name || '—'), cols[1] - cols[0] - 3);
         var rowH = Math.max(params.length, name.length) * 4.3 + 2.5;
         ensureSpace(rowH);
+        var where = l.lat != null && l.lng != null
+          ? l.lat.toFixed(5) + ', ' + l.lng.toFixed(5)
+          : (l.plan ? 'Site plan p.' + l.plan.page : '—');
         doc.text(name, cols[0], y + 4);
         doc.text(l.gridRef || '—', cols[1], y + 4);
-        doc.text(l.lat.toFixed(5) + ', ' + l.lng.toFixed(5), cols[2], y + 4);
+        doc.text(where, cols[2], y + 4);
         doc.text(params, cols[3], y + 4);
         y += rowH;
       });
@@ -333,6 +343,11 @@
       ['Wind', (s.weather.wind !== '' ? s.weather.wind + ' m/s ' : '') + (s.weather.windDir || '')],
       ['Notes', s.weather.notes]
     ]);
+    var noise = s.noise || {};
+    html += '<h2>Noise Climate</h2>' + kvTable([
+      ['Predominant noise source(s)', noise.sources],
+      ['Residual noise description', noise.residual]
+    ]);
     html += '<h2>Equipment</h2>' + kvTable([
       ['Noise meter', s.equipment.meter], ['Vibration kit', s.equipment.vibKit],
       ['Calibration check start', s.equipment.calStart ? s.equipment.calStart + ' dB' : ''],
@@ -344,10 +359,13 @@
     ]);
 
     if (s.locations.length) {
-      html += '<h2>Survey Locations</h2><table><tr><th>Position</th><th>OS Grid Ref</th><th>Lat</th><th>Lng</th><th>Parameters</th></tr>';
-      s.locations.forEach(function (l) {
-        html += '<tr><td>' + esc(l.name) + '</td><td>' + esc(l.gridRef || '—') + '</td><td>' +
-          l.lat.toFixed(5) + '</td><td>' + l.lng.toFixed(5) + '</td><td>' + esc(l.params || '—') + '</td></tr>';
+      html += '<h2>Survey Locations</h2><table><tr><th>#</th><th>Position</th><th>OS Grid Ref</th><th>Coordinates / Plan</th><th>Parameters</th></tr>';
+      s.locations.forEach(function (l, i) {
+        var where = l.lat != null && l.lng != null
+          ? l.lat.toFixed(5) + ', ' + l.lng.toFixed(5)
+          : (l.plan ? 'Site plan p.' + l.plan.page : '—');
+        html += '<tr><td>' + (i + 1) + '</td><td>' + esc(l.name) + '</td><td>' + esc(l.gridRef || '—') + '</td><td>' +
+          esc(where) + '</td><td>' + esc(l.params || '—') + '</td></tr>';
       });
       html += '</table>';
     }
@@ -392,14 +410,22 @@
       row(['Operative', s.operative]) + row(['Client', s.client]) + row(['Address', s.address]) +
       row(['Survey type', s.surveyType]) + row(['Description', s.description]) +
       row(['Weather', [s.weather.cond, s.weather.temp !== '' ? s.weather.temp + ' °C' : '', s.weather.wind !== '' ? s.weather.wind + ' m/s' : '', s.weather.windDir, s.weather.notes].filter(Boolean).join(', ')]) +
+      row(['Predominant noise source(s)', (s.noise || {}).sources]) +
+      row(['Residual noise description', (s.noise || {}).residual]) +
       row(['Noise meter', s.equipment.meter]) + row(['Vibration kit', s.equipment.vibKit]) +
       row(['Cal. check start/end', (s.equipment.calStart || '—') + ' / ' + (s.equipment.calEnd || '—')]) +
       row(['Start', fmtDT(s.times.start)]) + row(['Finish', fmtDT(s.times.finish)]) + row(['Duration', durationText(s)]);
     html += row(['']);
     html += row(['SURVEY LOCATIONS'], true);
-    html += row(['Position', 'OS Grid Ref', 'Lat', 'Lng', 'Parameters'], true);
-    s.locations.forEach(function (l) {
-      html += row([l.name, l.gridRef || '', l.lat.toFixed(6), l.lng.toFixed(6), l.params]);
+    html += row(['#', 'Position', 'OS Grid Ref', 'Lat', 'Lng', 'Plan', 'Parameters'], true);
+    s.locations.forEach(function (l, i) {
+      html += row([
+        i + 1, l.name, l.gridRef || '',
+        l.lat != null ? l.lat.toFixed(6) : '',
+        l.lng != null ? l.lng.toFixed(6) : '',
+        l.plan ? 'Page ' + l.plan.page : '',
+        l.params
+      ]);
     });
     html += row(['']);
     html += row(['MONITORING LOG'], true);

@@ -154,6 +154,18 @@
         </div>
 
         <div class="card">
+          <h3 class="card-title">Noise Climate</h3>
+          <div class="field">
+            <label>Predominant Noise Source(s)</label>
+            <input type="text" id="f-noise-sources" placeholder="e.g. road traffic on A38, plant extract, distant railway">
+          </div>
+          <div class="field">
+            <label>Residual / Background Noise Description</label>
+            <textarea id="f-noise-residual" rows="2" placeholder="Brief description of residual noise levels in the area, e.g. steady road traffic hum, occasional aircraft, birdsong…"></textarea>
+          </div>
+        </div>
+
+        <div class="card">
           <h3 class="card-title">Equipment</h3>
           <div class="field">
             <label>Noise Meter</label>
@@ -230,8 +242,8 @@
           <div class="duration-line" id="duration-line">Duration: —</div>
         </div>
 
-        <div class="card composer-card">
-          <h3 class="card-title">Add Log Entry</h3>
+        <div class="card composer-card" id="composer-card">
+          <h3 class="card-title" id="composer-title">Add Log Entry</h3>
           <div class="field">
             <textarea id="e-text" rows="2" placeholder="Note… e.g. HGV entered site, piling started, dominant source road traffic"></textarea>
           </div>
@@ -251,6 +263,7 @@
               <input type="file" id="e-photo" accept="image/*" capture="environment" multiple hidden>
             </label>
             <span id="e-photo-count" class="muted"></span>
+            <button class="btn btn-small hidden" id="btn-cancel-edit">Cancel</button>
             <button class="btn btn-primary" id="btn-add-entry">＋ Add entry</button>
           </div>
           <div id="e-photo-previews" class="photo-strip"></div>
@@ -272,14 +285,15 @@
               <input type="file" id="layout-file" accept="application/pdf,image/*" hidden>
             </label>
           </div>
-          <p class="hint">Load a site layout (PDF or image) and mark it up with measurement positions and notes.</p>
+          <p class="hint">Load a site layout (PDF or image), then use the 📍 tool and tap the plan to drop numbered measurement positions — before the survey or after returning from site. Pen, highlighter and text labels for markup.</p>
           <div id="layout-empty" class="empty-state">
             <div class="empty-icon">🗺</div>
             <p class="muted">No layout loaded.</p>
           </div>
           <div id="layout-editor" class="hidden">
             <div class="markup-toolbar">
-              <button class="tool-btn active" data-tool="pen" title="Pen">✏️</button>
+              <button class="tool-btn active" data-tool="position" title="Add measurement position">📍</button>
+              <button class="tool-btn" data-tool="pen" title="Pen">✏️</button>
               <button class="tool-btn" data-tool="highlight" title="Highlighter">🖍</button>
               <button class="tool-btn" data-tool="text" title="Text label">🅰</button>
               <span class="tool-sep"></span>
@@ -301,6 +315,11 @@
               <canvas id="layout-canvas-draw"></canvas>
             </div>
           </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Measurement Positions</h3>
+          <div id="layout-location-list" class="location-list"></div>
+          <p class="muted" id="layout-location-empty">No positions yet — select the 📍 tool above and tap the plan where you measured. Positions added on the map appear here too.</p>
         </div>
       </section>
 
@@ -346,10 +365,22 @@
     </nav>
   </div>
 
-  <!-- Photo viewer modal -->
+  <!-- Photo viewer / editor modal -->
   <div id="photo-modal" class="modal hidden">
     <button class="modal-close" id="photo-modal-close">✕</button>
+    <div class="photo-edit-bar hidden" id="photo-edit-bar">
+      <button class="pcolor-btn active" data-color="#e11d48" style="background:#e11d48"></button>
+      <button class="pcolor-btn" data-color="#2563eb" style="background:#2563eb"></button>
+      <button class="pcolor-btn" data-color="#f1aa07" style="background:#f1aa07"></button>
+      <button class="pcolor-btn" data-color="#111111" style="background:#111111"></button>
+      <span class="tool-sep"></span>
+      <button class="tool-btn" id="btn-photo-text" title="Add text note">🅰</button>
+      <button class="tool-btn" id="btn-photo-undo" title="Undo">↩︎</button>
+      <button class="btn btn-small btn-primary" id="btn-photo-save">Save</button>
+    </div>
     <img id="photo-modal-img" alt="Photo">
+    <canvas id="photo-edit-canvas" class="hidden"></canvas>
+    <button class="btn btn-small" id="btn-photo-edit">✏️ Edit / add note</button>
   </div>
 
   <!-- Toast -->
