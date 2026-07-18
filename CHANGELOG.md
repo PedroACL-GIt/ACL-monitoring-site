@@ -5,7 +5,7 @@ can be restored with `git checkout <commit>` (or by asking Claude to roll
 back to it). The same history is shown in-app under **Settings → Version**.
 Keep `js/version.js` in step with this file.
 
-## v1.9.0 — 2026-07-18
+## v1.9.0 — commit `7dd8d79` — 2026-07-18
 - Google Maps hand-off: G button opens Google satellite at the current map
   view; each position and marker popup links to its spot in Google Maps
 - Paste coordinates copied from Google Maps to drop a position in the app
