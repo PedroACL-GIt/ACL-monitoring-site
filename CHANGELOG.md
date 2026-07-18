@@ -5,7 +5,7 @@ can be restored with `git checkout <commit>` (or by asking Claude to roll
 back to it). The same history is shown in-app under **Settings → Version**.
 Keep `js/version.js` in step with this file.
 
-## v1.7.0 — 2026-07-18
+## v1.7.0 — commit `31f4d91` — 2026-07-18
 - Dedicated Settings screen (opened from a single row on the home screen)
 - Operatives list in Settings — mark yourself as default and every new sheet
   pre-fills your name
