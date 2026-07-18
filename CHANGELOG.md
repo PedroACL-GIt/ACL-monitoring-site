@@ -5,7 +5,7 @@ can be restored with `git checkout <commit>` (or by asking Claude to roll
 back to it). The same history is shown in-app under **Settings → Version**.
 Keep `js/version.js` in step with this file.
 
-## v1.7.1 — 2026-07-18
+## v1.7.1 — commit `86ce598` — 2026-07-18
 - Updates now apply on the first launch — the app refreshes itself when a
   new version downloads (previously it took two opens)
 
