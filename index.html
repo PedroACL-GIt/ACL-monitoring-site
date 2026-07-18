@@ -9,6 +9,13 @@
   <meta name="apple-mobile-web-app-title" content="ACL Monitor">
   <meta name="theme-color" content="#70150e">
   <title>ACL Noise Monitoring</title>
+  <script>
+    // apply saved theme before first paint to avoid a flash
+    try {
+      var t = localStorage.getItem('acl_nms_theme');
+      if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
   <link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png">
@@ -30,6 +37,7 @@
           <p class="subtitle">Noise monitoring · site sheets &amp; survey logs</p>
         </div>
         <button class="header-btn header-btn-right" id="btn-equipment">⚙ Equipment</button>
+        <button class="header-btn" id="btn-theme" title="Light / dark mode">🌗</button>
       </div>
     </header>
     <main class="home-main">

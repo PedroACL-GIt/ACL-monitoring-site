@@ -85,6 +85,25 @@
     }, 400);
   }
 
+  /* ================= Theme ================= */
+
+  var THEME_KEY = 'acl_nms_theme';
+
+  function applyTheme() {
+    var pref = localStorage.getItem(THEME_KEY);
+    if (pref === 'dark' || pref === 'light') document.documentElement.dataset.theme = pref;
+    else delete document.documentElement.dataset.theme;
+  }
+
+  function cycleTheme() {
+    var pref = localStorage.getItem(THEME_KEY);
+    var next = pref === 'dark' ? 'light' : pref === 'light' ? 'auto' : 'dark';
+    if (next === 'auto') localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, next);
+    applyTheme();
+    toast('Theme: ' + (next === 'auto' ? 'automatic (follows iPhone setting)' : next));
+  }
+
   /* ================= Equipment registry ================= */
   /* Company-wide kit list (device-stored), editable under ⚙ Equipment.
      Placeholder names until the real fleet is entered. */
@@ -1165,6 +1184,7 @@
       openSheet(s.id);
     });
 
+    $('btn-theme').addEventListener('click', cycleTheme);
     $('btn-equipment').addEventListener('click', function () {
       renderEquipScreen();
       showScreen('equipment');

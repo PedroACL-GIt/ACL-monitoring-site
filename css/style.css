@@ -1,23 +1,73 @@
 /* ACL Noise Monitoring — iOS-style mobile-first UI */
 
 :root {
-  /* ACL — Acoustic Consultants Ltd brand palette */
-  --navy: #70150e;          /* deep burgundy (primary dark) */
+  /* ACL — Acoustic Consultants Ltd brand palette (light) */
+  --navy: #70150e;          /* deep burgundy (header/banners, both themes) */
   --navy-2: #8f1c13;        /* lighter burgundy */
   --accent: #8f1c13;        /* interactive / primary */
   --accent-light: #f9e9ce;  /* light gold tint */
   --gold: #f1aa07;          /* ACL amber accent */
+  --heading: #70150e;       /* card titles & emphasis text */
   --bg: #f7efe6;            /* warm cream */
   --card: #ffffff;
   --text: #2a1a16;          /* near-black brown */
   --muted: #8a7a74;         /* warm grey */
   --line: #eadfd2;          /* warm beige line */
+  --field-bg: #fdfaf5;      /* inputs */
+  --btn-bg: #efe7dc;        /* neutral buttons */
+  --tabbar-bg: rgba(255, 255, 255, 0.96);
+  --canvas-bg: #efe8de;     /* layout viewer backdrop */
+  --chip-loc-bg: #efdbd8;
+  --chip-loc-text: #821b14;
   --green: #16a34a;
   --red: #dc2626;
   --radius: 14px;
   --shadow: 0 1px 3px rgba(74, 24, 14, 0.10), 0 4px 14px rgba(74, 24, 14, 0.06);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top: env(safe-area-inset-top, 0px);
+  color-scheme: light;
+}
+
+/* Dark theme — manual override */
+:root[data-theme="dark"] {
+  --accent: #c0564a;
+  --accent-light: #3a2417;
+  --heading: #f1aa07;
+  --bg: #191110;
+  --card: #241813;
+  --text: #f2e8e1;
+  --muted: #a3928a;
+  --line: #3a2b24;
+  --field-bg: #2b1d17;
+  --btn-bg: #33261f;
+  --tabbar-bg: rgba(28, 18, 14, 0.96);
+  --canvas-bg: #120c0a;
+  --chip-loc-bg: #442620;
+  --chip-loc-text: #e8a396;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 4px 14px rgba(0, 0, 0, 0.30);
+  color-scheme: dark;
+}
+
+/* Dark theme — follow the system unless the user forced light */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --accent: #c0564a;
+    --accent-light: #3a2417;
+    --heading: #f1aa07;
+    --bg: #191110;
+    --card: #241813;
+    --text: #f2e8e1;
+    --muted: #a3928a;
+    --line: #3a2b24;
+    --field-bg: #2b1d17;
+    --btn-bg: #33261f;
+    --tabbar-bg: rgba(28, 18, 14, 0.96);
+    --canvas-bg: #120c0a;
+    --chip-loc-bg: #442620;
+    --chip-loc-text: #e8a396;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 4px 14px rgba(0, 0, 0, 0.30);
+    color-scheme: dark;
+  }
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -153,7 +203,7 @@ html, body {
   padding: 16px;
   margin-bottom: 14px;
 }
-.card-title { margin: 0 0 12px; font-size: 1rem; font-weight: 700; color: var(--navy); }
+.card-title { margin: 0 0 12px; font-size: 1rem; font-weight: 700; color: var(--heading); }
 .card-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .card-title-row .card-title { margin: 0; }
 
@@ -174,7 +224,7 @@ html, body {
   border-radius: 10px;
   font-size: 16px; /* prevents iOS zoom */
   font-family: inherit;
-  background: #fdfaf5;
+  background: var(--field-bg);
   color: var(--text);
   appearance: none;
   -webkit-appearance: none;
@@ -202,7 +252,7 @@ html, body {
   font-weight: 600;
   padding: 11px 16px;
   cursor: pointer;
-  background: #efe7dc;
+  background: var(--btn-bg);
   color: var(--text);
   transition: transform 0.05s;
 }
@@ -217,7 +267,7 @@ html, body {
 .tab-bar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--tabbar-bg);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-top: 1px solid var(--line);
@@ -316,14 +366,14 @@ html, body {
   border-radius: 10px;
   font-size: 0.9rem;
   font-family: inherit;
-  background: #fdfaf5;
+  background: var(--field-bg);
   width: 100%;
 }
 .duration-line {
   margin-top: 12px;
   text-align: center;
   font-weight: 700;
-  color: var(--navy);
+  color: var(--heading);
   font-variant-numeric: tabular-nums;
 }
 
@@ -355,7 +405,7 @@ html, body {
 .entry-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .entry-time {
   font-weight: 700;
-  color: var(--navy);
+  color: var(--heading);
   font-variant-numeric: tabular-nums;
   font-size: 0.9rem;
 }
@@ -367,7 +417,7 @@ html, body {
   border-radius: 999px;
   padding: 2px 9px;
 }
-.entry-chip.loc { background: #efdbd8; color: #821b14; }
+.entry-chip.loc { background: var(--chip-loc-bg); color: var(--chip-loc-text); }
 .entry-actions { margin-left: auto; display: flex; gap: 2px; }
 .entry-actions button { background: none; border: none; font-size: 0.95rem; cursor: pointer; color: var(--muted); padding: 3px 6px; }
 .entry-text { margin: 7px 0 0; font-size: 0.95rem; white-space: pre-wrap; }
@@ -385,7 +435,7 @@ html, body {
   width: 38px; height: 38px;
   border-radius: 9px;
   border: 1px solid var(--line);
-  background: #fdfaf5;
+  background: var(--field-bg);
   font-size: 16px;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -417,7 +467,7 @@ html, body {
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #efe8de;
+  background: var(--canvas-bg);
   max-height: 64dvh;
 }
 .layout-canvas-wrap canvas { display: block; width: 100%; height: auto; }
@@ -436,7 +486,7 @@ html, body {
 }
 .export-btn {
   border: 1px solid var(--line);
-  background: #fdfaf5;
+  background: var(--field-bg);
   border-radius: var(--radius);
   padding: 18px 10px;
   font-family: inherit;
@@ -452,7 +502,7 @@ html, body {
 .export-btn:active { transform: scale(0.98); border-color: var(--accent); }
 .export-icon { font-size: 28px; }
 .summary-block { font-size: 0.88rem; line-height: 1.65; }
-.summary-block b { color: var(--navy); }
+.summary-block b { color: var(--heading); }
 
 /* ---------- Modal & toast ---------- */
 .modal {
@@ -524,7 +574,7 @@ html, body {
   border-radius: 10px;
   font-size: 16px;
   font-family: inherit;
-  background: #fdfaf5;
+  background: var(--field-bg);
   color: var(--text);
 }
 .equip-item input:focus {
