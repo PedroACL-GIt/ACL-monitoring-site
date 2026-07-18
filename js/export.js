@@ -63,9 +63,9 @@
       })
       .catch(function () { assetCache[url] = null; return null; });
   }
-  // white ACL lockup for dark banners; rounded app icon for white backgrounds
+  // white ACL lockup for dark banners; light (signature-style) lockup for white backgrounds
   function loadLogo() { return loadAsset('icons/acl-lockup.png'); }
-  function loadIcon() { return loadAsset('icons/logo-rounded-512.png'); }
+  function loadLogoLight() { return loadAsset('icons/acl-lockup-light.png'); }
 
   function buildPDF(s, assets, logo) {
     if (!global.jspdf || !global.jspdf.jsPDF) throw new Error('PDF library not loaded — reload the app once online.');
@@ -294,7 +294,7 @@
   /* ---------------- Word (.doc) ---------------- */
 
   function toWord(s, assets) {
-    return loadIcon().then(function (logo) { return buildWord(s, assets, logo); });
+    return loadLogoLight().then(function (logo) { return buildWord(s, assets, logo); });
   }
 
   function buildWord(s, assets, logo) {
@@ -311,7 +311,7 @@
       'img{max-width:320px;margin:4px}' +
       '</style></head><body>';
 
-    if (logo) html += '<p><img src="' + logo + '" width="72" height="72"></p>';
+    if (logo) html += '<p><img src="' + logo + '" width="259" height="60"></p>';
     html += '<h1>NOISE MONITORING SHEET</h1>';
     html += '<p><b>' + esc(s.project || 'Untitled survey') + '</b>' + (s.jobNo ? ' — Job ' + esc(s.jobNo) : '') + '</p>';
 

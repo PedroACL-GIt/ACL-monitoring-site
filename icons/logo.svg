@@ -1,18 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="disc" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#8f1c13"/>
-      <stop offset="0.55" stop-color="#70150e"/>
-      <stop offset="1" stop-color="#4a0e09"/>
+      <stop offset="1" stop-color="#70150e"/>
     </linearGradient>
   </defs>
 
-  <rect width="512" height="512" rx="114" fill="url(#bg)"/>
-
-  <!-- ACL mark: white disc with loudspeaker cut-out -->
-  <circle cx="256" cy="256" r="170" fill="#ffffff"/>
-  <g fill="#70150e">
-    <rect x="141" y="129" width="60" height="254"/>
-    <path d="M 220 256 L 363 133 L 363 379 Z"/>
+  <!-- signature-style: white ground, burgundy disc, white loudspeaker cut-out -->
+  <rect width="512" height="512" rx="114" fill="#ffffff"/>
+  <circle cx="256" cy="256" r="192" fill="url(#disc)"/>
+  <g fill="#ffffff">
+    <rect x="126" y="112" width="68" height="288"/>
+    <path d="M 216 256 L 378 117 L 378 395 Z"/>
   </g>
 </svg>

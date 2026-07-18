@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 648 150">
+  <!-- light-background lockup, matching the company e-mail signature -->
+  <circle cx="75" cy="75" r="73" fill="#75180f"/>
+  <g fill="#ffffff">
+    <rect x="38" y="24" width="24" height="102"/>
+    <path d="M 70 75 L 127 26 L 127 124 Z"/>
+  </g>
+  <text x="180" y="70" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
+        font-size="52" font-weight="600" letter-spacing="22" fill="#1c1c1c">ACOUSTIC</text>
+  <text x="182" y="118" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
+        font-size="30" font-weight="500" letter-spacing="13" fill="#7a7a7a">CONSULTANTS LTD</text>
+</svg>
