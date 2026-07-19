@@ -6,8 +6,17 @@
   'use strict';
 
   global.APP = {
-    version: '1.9.7',
+    version: '1.10.0',
     changelog: [
+      {
+        version: '1.10.0',
+        date: '2026-07-19',
+        notes: [
+          'Back up all data (Settings): every sheet, photo, layout plan and both registries saved to a single file via the share sheet',
+          'Restore backup: import that file on the same or another device — existing sheets are kept, duplicates skipped',
+          'Also works as a device-to-device transfer'
+        ]
+      },
       {
         version: '1.9.7',
         date: '2026-07-19',

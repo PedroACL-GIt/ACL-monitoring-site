@@ -5,6 +5,13 @@ can be restored with `git checkout <commit>` (or by asking Claude to roll
 back to it). The same history is shown in-app under **Settings → Version**.
 Keep `js/version.js` in step with this file.
 
+## v1.10.0 — 2026-07-19
+- Back up all data (Settings): every sheet, photo, layout plan and both
+  registries saved to a single file via the share sheet
+- Restore backup: import that file on the same or another device — existing
+  sheets are kept, duplicates skipped
+- Also works as a device-to-device transfer
+
 ## v1.9.7 — commit `1427834` — 2026-07-19
 - Default operative marker simplified to just "default" in small letters
   under the name

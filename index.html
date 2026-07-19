@@ -86,6 +86,16 @@
           <span class="settings-label">Appearance</span>
           <span class="settings-value" id="theme-value">Automatic</span>
         </button>
+        <button class="settings-row" id="btn-backup">
+          <span class="settings-icon">💾</span>
+          <span class="settings-label">Back up all data</span>
+          <span class="settings-value">Every sheet, photo &amp; plan → file</span>
+        </button>
+        <button class="settings-row" id="btn-restore">
+          <span class="settings-icon">📥</span>
+          <span class="settings-label">Restore backup</span>
+          <span class="settings-value">Import a backup file</span>
+        </button>
         <button class="settings-row" id="btn-about">
           <span class="settings-icon">ℹ️</span>
           <span class="settings-label">Version</span>
@@ -522,6 +532,7 @@
 
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
+  <input type="file" id="restore-file" accept="application/json,.json" hidden>
 
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="vendor/jspdf/jspdf.umd.min.js"></script>

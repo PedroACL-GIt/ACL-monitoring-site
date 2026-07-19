@@ -124,6 +124,127 @@
   /** Compare our version against the server's (bypassing every cache).
       On mismatch: wipe the app cache and reload — deterministic update
       that doesn't depend on browser service-worker update quirks. */
+  /* ================= Backup & restore ================= */
+
+  function dataURLToBlob(durl) {
+    var parts = durl.split(',');
+    var mime = (parts[0].match(/data:([^;]+)/) || [null, 'application/octet-stream'])[1];
+    var bin = atob(parts[1]);
+    var arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+
+  function downloadFile(blob, name) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  }
+
+  /** Bundle every sheet, photo, layout plan and both registries into one
+      JSON file the user can save, email or move to another device. */
+  function exportAllData() {
+    toast('Preparing backup…', 6000);
+    var ids = [];
+    sheets.forEach(function (s) {
+      s.entries.forEach(function (en) { ids = ids.concat(en.photoIds); });
+      if (s.layout && s.layout.blobId) ids.push(s.layout.blobId);
+    });
+    var blobs = {};
+    var chain = Promise.resolve();
+    ids.forEach(function (id) {
+      chain = chain.then(function () {
+        return Store.getBlob(id).then(function (b) {
+          if (!b) return;
+          return Store.blobToDataURL(b).then(function (durl) { blobs[id] = durl; });
+        });
+      });
+    });
+    chain.then(function () {
+      var payload = {
+        app: 'acl-noise-monitoring-backup',
+        appVersion: APP.version,
+        exportedAt: new Date().toISOString(),
+        sheets: sheets,
+        equipment: equipment,
+        people: people,
+        blobs: blobs
+      };
+      var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+      var name = 'ACL-backup_' + new Date().toISOString().slice(0, 10) + '.json';
+      var file = new File([blob], name, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'ACL monitoring backup' })
+          .then(function () { toast('Backup shared'); })
+          .catch(function (e) {
+            if (e && e.name === 'AbortError') { toast('Backup cancelled'); return; }
+            downloadFile(blob, name);
+            toast('Backup saved: ' + name);
+          });
+      } else {
+        downloadFile(blob, name);
+        toast('Backup saved: ' + name);
+      }
+    }).catch(function (e) {
+      toast('Backup failed: ' + e.message);
+    });
+  }
+
+  function importBackup(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var p;
+      try { p = JSON.parse(reader.result); } catch (e) { toast('Not a valid backup file'); return; }
+      if (!p || p.app !== 'acl-noise-monitoring-backup' || !Array.isArray(p.sheets)) {
+        toast('Not a valid ACL backup file');
+        return;
+      }
+      if (!confirm('Restore backup from ' + (p.exportedAt || '').slice(0, 10) + ' with ' + p.sheets.length +
+        ' sheet(s)?\n\nYour existing sheets are kept — sheets already on this device are skipped.')) return;
+      var existing = {};
+      sheets.forEach(function (s) { existing[s.id] = true; });
+      var added = 0, skipped = 0;
+      p.sheets.forEach(function (s) {
+        if (existing[s.id]) { skipped++; return; }
+        if (!s.noise) s.noise = { sources: '', residual: '' };
+        sheets.push(s);
+        added++;
+      });
+      // merge registries (union, keep this device's default operative if set)
+      if (p.equipment) {
+        (p.equipment.meters || []).forEach(function (m) { if (m && equipment.meters.indexOf(m) === -1) equipment.meters.push(m); });
+        (p.equipment.vibKits || []).forEach(function (v) { if (v && equipment.vibKits.indexOf(v) === -1) equipment.vibKits.push(v); });
+      }
+      if (p.people) {
+        (p.people.names || []).forEach(function (n) { if (n && people.names.indexOf(n) === -1) people.names.push(n); });
+        if (!people.defaultName && p.people.defaultName) people.defaultName = p.people.defaultName;
+      }
+      var blobChain = Promise.resolve();
+      Object.keys(p.blobs || {}).forEach(function (id) {
+        blobChain = blobChain.then(function () {
+          return Store.getBlob(id).then(function (b) {
+            if (b) return; // keep existing
+            return Store.putBlob(id, dataURLToBlob(p.blobs[id]));
+          });
+        });
+      });
+      blobChain.then(function () {
+        Store.saveSheets(sheets);
+        saveEquipment();
+        savePeople();
+        renderHome();
+        toast('Restored: ' + added + ' sheet(s) added' + (skipped ? ', ' + skipped + ' already on this device' : ''), 4000);
+      }).catch(function (e) {
+        toast('Restore failed: ' + e.message);
+      });
+    };
+    reader.onerror = function () { toast('Could not read the file'); };
+    reader.readAsText(file);
+  }
+
   function checkForUpdates(manual) {
     fetch('js/version.js?nocache=' + Date.now(), { cache: 'no-store' })
       .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.text(); })
@@ -1510,6 +1631,13 @@
     $('btn-check-update').addEventListener('click', function () {
       toast('Checking for updates…');
       checkForUpdates(true);
+    });
+    $('btn-backup').addEventListener('click', exportAllData);
+    $('btn-restore').addEventListener('click', function () { $('restore-file').click(); });
+    $('restore-file').addEventListener('change', function (e) {
+      var f = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (f) importBackup(f);
     });
     $('btn-add-meter').addEventListener('click', function () {
       equipment.meters.push('');
