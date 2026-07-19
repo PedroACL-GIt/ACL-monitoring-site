@@ -6,8 +6,15 @@
   'use strict';
 
   global.APP = {
-    version: '1.9.5',
+    version: '1.9.6',
     changelog: [
+      {
+        version: '1.9.6',
+        date: '2026-07-19',
+        notes: [
+          'Default operative marker changed to a small text line under the name — the tag was squeezing the name field'
+        ]
+      },
       {
         version: '1.9.5',
         date: '2026-07-19',

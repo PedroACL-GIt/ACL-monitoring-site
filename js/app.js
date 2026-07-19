@@ -234,8 +234,10 @@
       el.innerHTML =
         '<input type="radio" class="op-radio" name="op-default" title="Pre-fill new sheets with this name"' +
         (isDefault ? ' checked' : '') + '>' +
-        '<input class="op-name" value="' + esc(name) + '" placeholder="Full name">' +
-        (isDefault ? '<span class="default-chip">Default</span>' : '') +
+        '<div class="op-body">' +
+          '<input class="op-name" value="' + esc(name) + '" placeholder="Full name">' +
+          (isDefault ? '<div class="op-default-note">✓ Default — used on new sheets</div>' : '') +
+        '</div>' +
         '<button class="equip-del" title="Remove">✕</button>';
       el.querySelector('.op-radio').addEventListener('change', function () {
         people.defaultName = people.names[i];
