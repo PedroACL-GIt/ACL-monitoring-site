@@ -28,8 +28,14 @@
     var l = s.locations.find(function (x) { return x.id === id; });
     return l ? l.name : '';
   }
+  /** Company-style label: job number first, then project name. */
+  function jobLabel(s) {
+    var t = [s.jobNo, s.project].filter(Boolean).join(' — ');
+    return t || 'Untitled survey';
+  }
   function fileStem(s) {
-    var base = (s.project || 'noise-monitoring').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-');
+    var base = [s.jobNo, s.project].filter(Boolean).join(' ')
+      .replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-');
     return (base || 'noise-monitoring') + '_' + (s.date || 'sheet');
   }
   function esc(t) {
@@ -117,7 +123,7 @@
     doc.text('NOISE MONITORING SHEET', M, 13);
     doc.setFontSize(9.5);
     doc.setFont('helvetica', 'normal');
-    doc.text((s.project || 'Untitled survey') + (s.jobNo ? '   ·   Job ' + s.jobNo : ''), M, 21);
+    doc.text(jobLabel(s), M, 21);
     doc.setTextColor(42, 26, 22);
     y = 38;
 
@@ -279,7 +285,7 @@
   function shareByEmail(s, assets) {
     return toPDF(s, assets, { blob: true }).then(function (out) {
       var file = new File([out.blob], out.name, { type: 'application/pdf' });
-      var subject = 'Noise monitoring sheet — ' + (s.project || 'survey') + (s.jobNo ? ' (' + s.jobNo + ')' : '');
+      var subject = 'Noise monitoring sheet — ' + jobLabel(s);
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         return navigator.share({
           files: [file],
@@ -324,7 +330,7 @@
 
     if (logo) html += '<p><img src="' + logo + '" width="259" height="60"></p>';
     html += '<h1>NOISE MONITORING SHEET</h1>';
-    html += '<p><b>' + esc(s.project || 'Untitled survey') + '</b>' + (s.jobNo ? ' — Job ' + esc(s.jobNo) : '') + '</p>';
+    html += '<p><b>' + esc(jobLabel(s)) + '</b></p>';
 
     function kvTable(rows) {
       var t = '<table>';

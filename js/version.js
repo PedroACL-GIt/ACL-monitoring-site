@@ -6,8 +6,15 @@
   'use strict';
 
   global.APP = {
-    version: '1.9.3',
+    version: '1.9.4',
     changelog: [
+      {
+        version: '1.9.4',
+        date: '2026-07-19',
+        notes: [
+          'Sheets are titled company-style: job number first, then project name — on the sheets list, sheet header, exports and export file names'
+        ]
+      },
       {
         version: '1.9.3',
         date: '2026-07-19',

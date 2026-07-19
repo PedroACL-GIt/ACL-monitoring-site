@@ -50,6 +50,12 @@
 
   /* ================= Sheet model ================= */
 
+  /** Company-style label: job number first, then project name. */
+  function sheetLabel(s) {
+    var t = [s.jobNo, s.project].filter(Boolean).join(' — ');
+    return t || 'Untitled sheet';
+  }
+
   function newSheet() {
     return {
       id: uid(),
@@ -342,9 +348,8 @@
     sorted.forEach(function (s) {
       var el = document.createElement('div');
       el.className = 'sheet-card';
-      var title = s.project || 'Untitled sheet';
+      var title = sheetLabel(s);
       var subs = [fmtDate(s.date)];
-      if (s.jobNo) subs.push(s.jobNo);
       if (s.operative) subs.push(s.operative);
       subs.push(s.entries.length + ' entries');
       el.innerHTML =
@@ -376,7 +381,7 @@
     updateLocationSelect();
     updateDuration();
     resetLayoutUI();
-    $('sheet-title-label').textContent = sheet.project || 'Untitled sheet';
+    $('sheet-title-label').textContent = sheetLabel(sheet);
     showScreen('sheet');
     showTab('details');
     if (sheet.layout && sheet.layout.blobId) loadLayoutFromStore();
@@ -423,7 +428,7 @@
       var el = $(f[0]);
       if (el) f[2](sheet, el.value);
     });
-    $('sheet-title-label').textContent = sheet.project || 'Untitled sheet';
+    $('sheet-title-label').textContent = sheetLabel(sheet);
   }
 
   /* ================= Weather auto-fill ================= */
@@ -1445,7 +1450,7 @@
     }
     var photoCount = s.entries.reduce(function (n, e) { return n + e.photoIds.length; }, 0);
     $('export-summary').innerHTML =
-      '<b>' + esc(s.project || 'Untitled') + '</b> — ' + esc(s.jobNo || 'no job no.') + '<br>' +
+      '<b>' + esc(sheetLabel(s)) + '</b><br>' +
       esc(fmtDate(s.date)) + ' · ' + esc(s.operative || 'operative not set') + '<br>' +
       'Survey: ' + esc(s.surveyType || '—') + '<br>' +
       'Meter: ' + esc(s.equipment.meter || '—') + ' · Vibration: ' + esc(s.equipment.vibKit || '—') + '<br>' +
