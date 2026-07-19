@@ -236,7 +236,7 @@
         (isDefault ? ' checked' : '') + '>' +
         '<div class="op-body">' +
           '<input class="op-name" value="' + esc(name) + '" placeholder="Full name">' +
-          (isDefault ? '<div class="op-default-note">✓ Default — used on new sheets</div>' : '') +
+          (isDefault ? '<div class="op-default-note">default</div>' : '') +
         '</div>' +
         '<button class="equip-del" title="Remove">✕</button>';
       el.querySelector('.op-radio').addEventListener('change', function () {
