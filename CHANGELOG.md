@@ -5,7 +5,7 @@ can be restored with `git checkout <commit>` (or by asking Claude to roll
 back to it). The same history is shown in-app under **Settings → Version**.
 Keep `js/version.js` in step with this file.
 
-## v1.9.7 — 2026-07-19
+## v1.9.7 — commit `1427834` — 2026-07-19
 - Default operative marker simplified to just "default" in small letters
   under the name
 
