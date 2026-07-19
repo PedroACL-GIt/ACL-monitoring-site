@@ -5,6 +5,13 @@ can be restored with `git checkout <commit>` (or by asking Claude to roll
 back to it). The same history is shown in-app under **Settings → Version**.
 Keep `js/version.js` in step with this file.
 
+## v1.9.2 — 2026-07-19
+- Robust updates: the app compares its version against the server directly
+  and refreshes itself if newer — no longer relies on browser update quirks
+- Update check runs at launch and every time the app returns to the
+  foreground (iOS often resumes from memory without relaunching)
+- Manual "Check for updates" row added in Settings
+
 ## v1.9.1 — commit `fa2c364` — 2026-07-18
 - Fixed the G button not opening from the home-screen app (iOS blocks
   window.open in standalone mode)

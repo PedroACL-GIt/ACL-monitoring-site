@@ -6,8 +6,17 @@
   'use strict';
 
   global.APP = {
-    version: '1.9.1',
+    version: '1.9.2',
     changelog: [
+      {
+        version: '1.9.2',
+        date: '2026-07-19',
+        notes: [
+          'Robust updates: the app compares its version against the server directly and refreshes itself if newer — no longer relies on browser update quirks',
+          'Update check runs at launch and every time the app returns to the foreground',
+          'Manual "Check for updates" row added in Settings'
+        ]
+      },
       {
         version: '1.9.1',
         date: '2026-07-18',

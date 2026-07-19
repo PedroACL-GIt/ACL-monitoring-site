@@ -1,6 +1,6 @@
 /* Offline-first service worker: caches the app shell and CDN libraries.
    Map tiles, geocoding and weather stay network-only. */
-var CACHE = 'acl-nms-v13';
+var CACHE = 'acl-nms-v15';
 var SHELL = [
   './',
   './index.html',
@@ -59,6 +59,8 @@ self.addEventListener('fetch', function (e) {
   // only handle our own files — tiles, geocoding, weather and the
   // embedded Google preview always go straight to the network
   if (url.origin !== location.origin) return;
+  // ?nocache= requests are live version probes — never serve from cache
+  if (url.searchParams.has('nocache')) return;
 
   e.respondWith(
     caches.match(e.request, { ignoreSearch: true }).then(function (hit) {

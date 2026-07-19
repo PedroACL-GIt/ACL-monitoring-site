@@ -115,6 +115,42 @@
     toast('Appearance: ' + (next === 'auto' ? 'automatic (follows iPhone setting)' : next));
   }
 
+  /** Compare our version against the server's (bypassing every cache).
+      On mismatch: wipe the app cache and reload — deterministic update
+      that doesn't depend on browser service-worker update quirks. */
+  function checkForUpdates(manual) {
+    fetch('js/version.js?nocache=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.text(); })
+      .then(function (txt) {
+        var m = txt.match(/version:\s*'([0-9.]+)'/);
+        if (!m) throw new Error('no version');
+        if (m[1] === APP.version) {
+          if (manual) toast('Up to date — v' + APP.version);
+          return;
+        }
+        var last = +(localStorage.getItem('acl_nms_upd_ts') || 0);
+        if (!manual && Date.now() - last < 120000) return; // reload-loop guard
+        localStorage.setItem('acl_nms_upd_ts', String(Date.now()));
+        toast('Updating to v' + m[1] + '…');
+        var wipe = ('caches' in window)
+          ? caches.keys().then(function (ks) {
+              return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+            })
+          : Promise.resolve();
+        wipe.then(function () {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistration().then(function (reg) {
+              if (reg) reg.update().catch(function () {});
+            });
+          }
+          setTimeout(function () { location.reload(); }, 400);
+        });
+      })
+      .catch(function () {
+        if (manual) toast('Could not check — are you online?');
+      });
+  }
+
   function renderChangelog() {
     $('about-version-line').textContent = 'Version ' + APP.version;
     var wrap = $('changelog-list');
@@ -1461,6 +1497,10 @@
     $('btn-about-back').addEventListener('click', function () {
       showScreen('settings');
     });
+    $('btn-check-update').addEventListener('click', function () {
+      toast('Checking for updates…');
+      checkForUpdates(true);
+    });
     $('btn-add-meter').addEventListener('click', function () {
       equipment.meters.push('');
       saveEquipment();
@@ -1671,7 +1711,13 @@
         refreshed = true;
         location.reload();
       });
+      // iOS often resumes the app from memory instead of relaunching it,
+      // so also check for updates whenever it returns to the foreground
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) checkForUpdates(false);
+      });
     }
+    setTimeout(function () { checkForUpdates(false); }, 3000);
   }
 
   boot();
