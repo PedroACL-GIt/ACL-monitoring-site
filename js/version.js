@@ -6,8 +6,15 @@
   'use strict';
 
   global.APP = {
-    version: '1.9.2',
+    version: '1.9.3',
     changelog: [
+      {
+        version: '1.9.3',
+        date: '2026-07-19',
+        notes: [
+          'Equipment settings icon changed to a speaker symbol — the fader icon read as a cross at a glance'
+        ]
+      },
       {
         version: '1.9.2',
         date: '2026-07-19',

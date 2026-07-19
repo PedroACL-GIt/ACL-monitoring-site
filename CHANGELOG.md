@@ -5,6 +5,10 @@ can be restored with `git checkout <commit>` (or by asking Claude to roll
 back to it). The same history is shown in-app under **Settings → Version**.
 Keep `js/version.js` in step with this file.
 
+## v1.9.3 — 2026-07-19
+- Equipment settings icon changed to a speaker symbol — the fader icon read
+  as a cross at a glance
+
 ## v1.9.2 — commit `3ba242a` — 2026-07-19
 - Robust updates: the app compares its version against the server directly
   and refreshes itself if newer — no longer relies on browser update quirks
