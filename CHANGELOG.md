@@ -5,7 +5,7 @@ can be restored with `git checkout <commit>` (or by asking Claude to roll
 back to it). The same history is shown in-app under **Settings → Version**.
 Keep `js/version.js` in step with this file.
 
-## v1.10.0 — 2026-07-19
+## v1.10.0 — commit `66472b3` — 2026-07-19
 - Back up all data (Settings): every sheet, photo, layout plan and both
   registries saved to a single file via the share sheet
 - Restore backup: import that file on the same or another device — existing
