@@ -228,16 +228,19 @@
     var wrap = $('operative-list');
     wrap.innerHTML = '';
     people.names.forEach(function (name, i) {
+      var isDefault = name && people.defaultName === name;
       var el = document.createElement('div');
       el.className = 'equip-item';
       el.innerHTML =
         '<input type="radio" class="op-radio" name="op-default" title="Pre-fill new sheets with this name"' +
-        (name && people.defaultName === name ? ' checked' : '') + '>' +
+        (isDefault ? ' checked' : '') + '>' +
         '<input class="op-name" value="' + esc(name) + '" placeholder="Full name">' +
+        (isDefault ? '<span class="default-chip">Default</span>' : '') +
         '<button class="equip-del" title="Remove">✕</button>';
       el.querySelector('.op-radio').addEventListener('change', function () {
         people.defaultName = people.names[i];
         savePeople();
+        renderOperativesScreen();
         toast((people.defaultName || 'This name') + ' will be pre-filled on new sheets');
       });
       el.querySelector('.op-name').addEventListener('input', function (e) {

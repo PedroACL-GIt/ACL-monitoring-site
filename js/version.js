@@ -6,8 +6,15 @@
   'use strict';
 
   global.APP = {
-    version: '1.9.4',
+    version: '1.9.5',
     changelog: [
+      {
+        version: '1.9.5',
+        date: '2026-07-19',
+        notes: [
+          'The selected operative now shows a gold "Default" tag so it is clear whose name pre-fills new sheets'
+        ]
+      },
       {
         version: '1.9.4',
         date: '2026-07-19',
