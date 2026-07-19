@@ -5,7 +5,7 @@ can be restored with `git checkout <commit>` (or by asking Claude to roll
 back to it). The same history is shown in-app under **Settings → Version**.
 Keep `js/version.js` in step with this file.
 
-## v1.9.4 — 2026-07-19
+## v1.9.4 — commit `cef0887` — 2026-07-19
 - Sheets are titled company-style: job number first, then project name — on
   the sheets list, sheet header, exports and export file names
 
